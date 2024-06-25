@@ -11,22 +11,20 @@ I would recommend creating a python environment by runing this command:
 ```
 
 # Running the Python environment:
-````
-    ```
-        For Windows
-        ./venv/Scripts/python.exe
-    ```
+```
+    For Windows
+    ./venv/Scripts/python.exe
+```
 
-    For Linux
-    ```
-        source ./venv/Scripts/python
-    ```
+For Linux
+```
+    source ./venv/Scripts/python
+```
 
-    For Mac
-    ```
-        source ./venv/Scripts/python
-    ```
-````
+For Mac
+```
+    source ./venv/Scripts/python
+```
 
 # Installing the needed Libs:
 ```
