@@ -11,8 +11,8 @@ I would recommend creating a python environment by runing this command:
 ```
 
 # Running the Python environment:
+For Windows
 ```
-    For Windows
     ./venv/Scripts/python.exe
 ```
 
