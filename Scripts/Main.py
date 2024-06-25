@@ -9,7 +9,7 @@ import math
 
 TOX = 0
 TOY = 0
-FOV = 350
+FOV = 450
 STOP = False
 FRAME = None
 POSITIONS = []
