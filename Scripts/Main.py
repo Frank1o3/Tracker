@@ -80,7 +80,7 @@ def move_aim(event: Event):
         cursor_x, cursor_y = VM.get_cursor_position()
         TOX = calculate(cursor_x, x, SENSITIVITY)
         TOY = calculate(cursor_y, y, SENSITIVITY)
-        if (abs(x - cursor_x) <= 5 and abs(y - cursor_y) <= 5):
+        if (abs(x - cursor_x) < 5 and abs(y - cursor_y) < 5):
             SHOOT = True
             VM.left_click()
         else:
