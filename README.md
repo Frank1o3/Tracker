@@ -32,4 +32,7 @@ For Mac
     pip install -r requirements.txt
 ```
 
+# Why?
+This was made for educational purpose so its not that good and dont use it in Phantom Foces >:(
+
 This project is licensed under the MIT License. See the `LICENSE` file for details.
