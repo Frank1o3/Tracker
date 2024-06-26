@@ -14,7 +14,7 @@ STOP = False
 FRAME = None
 POSITIONS = []
 THRESHOLD = 0.74
-SENSITIVITY = 5
+SENSITIVITY = 15
 FRAME_LOCK = Lock()
 VM = VirtualMouse()
 VK = VirtualKeyboard()
@@ -78,7 +78,6 @@ def move_aim(event: Event):
         cursor_x, cursor_y = VM.get_cursor_position()
         TOX = calculate(cursor_x, x, SENSITIVITY)
         TOY = calculate(cursor_y, y, SENSITIVITY)
-        cv.waitKey(1)
         VM.move_mouse_relative(TOX, TOY)
         try:
             POSITIONS.pop(0)
