@@ -83,6 +83,10 @@ def move_aim(event: Event):
         if (abs(x - cursor_x) < 5 and abs(y - cursor_y) < 5):
             SHOOT = True
             VM.left_click()
+            time.sleep(0.1)
+            VM.right_click()
+            time.sleep(0.1)
+            VM.move_mouse_relative(dy=25)
         else:
             SHOOT = False
         VM.move_mouse_relative(TOX, TOY)
