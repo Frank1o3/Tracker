@@ -6,15 +6,17 @@ from mss import mss
 import numpy as np
 import cv2 as cv
 import math
+import time
 
 TOX = 0
 TOY = 0
-FOV = 450
+FOV = 500
+SHOOT = False
 STOP = False
 FRAME = None
 POSITIONS = []
 THRESHOLD = 0.74
-SENSITIVITY = 15
+SENSITIVITY = 5
 FRAME_LOCK = Lock()
 VM = VirtualMouse()
 VK = VirtualKeyboard()
@@ -68,7 +70,7 @@ def move_aim(event: Event):
     monitor = sct.monitors[0]
     left = (monitor["width"] - FOV) // 2
     top = (monitor["height"] - FOV) // 2
-    global TOX, TOY
+    global TOX, TOY, SHOOT
     while not event.is_set():
         if not POSITIONS:
             continue
@@ -78,16 +80,22 @@ def move_aim(event: Event):
         cursor_x, cursor_y = VM.get_cursor_position()
         TOX = calculate(cursor_x, x, SENSITIVITY)
         TOY = calculate(cursor_y, y, SENSITIVITY)
+        if (abs(x - cursor_x) <= 5 and abs(y - cursor_y) <= 5):
+            SHOOT = True
+            VM.left_click()
+        else:
+            SHOOT = False
         VM.move_mouse_relative(TOX, TOY)
         try:
             POSITIONS.pop(0)
         except:
             pass
-
+        time.sleep(0.05)
 
 def display(event: Event):
     while not event.is_set():
         if FRAME is not None:
+            cv.putText(FRAME, f"Shoot: {SHOOT}", (5,35),cv.FONT_ITALIC,1,(0,255,0),2,1)
             cv.arrowedLine(
                 FRAME,
                 ((FOV // 2), (FOV // 2)),
