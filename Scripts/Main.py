@@ -80,14 +80,9 @@ def move_aim(event: Event):
         cursor_x, cursor_y = VM.get_cursor_position()
         TOX = calculate(cursor_x, x, SENSITIVITY)
         TOY = calculate(cursor_y, y, SENSITIVITY)
-        if (abs(x - cursor_x) < 5 or abs(y - cursor_y) < 5):
-            VK.key_down(VK.char_to_keycode("left_shift"))
-        else:
-            VK.key_up(VK.char_to_keycode("left_shift"))
-        if (abs(x - cursor_x) < 2 and abs(y - cursor_y) < 2):
+        if abs(x - cursor_x) < 5 and abs(y - cursor_y) < 5:
             SHOOT = True
             VM.left_click()
-            time.sleep(0.1)
         else:
             SHOOT = False
         VM.move_mouse_relative(TOX, TOY)
@@ -97,10 +92,20 @@ def move_aim(event: Event):
             pass
         time.sleep(0.05)
 
+
 def display(event: Event):
     while not event.is_set():
         if FRAME is not None:
-            cv.putText(FRAME, f"Shoot: {SHOOT} ToX: {TOX} ToY: {TOY}", (5,35),cv.FONT_ITALIC,1,(0,255,0),2,1)
+            cv.putText(
+                FRAME,
+                f"Shoot: {SHOOT} ToX: {TOX} ToY: {TOY}",
+                (5, 35),
+                cv.FONT_ITALIC,
+                1,
+                (0, 255, 0),
+                2,
+                1,
+            )
             cv.arrowedLine(
                 FRAME,
                 ((FOV // 2), (FOV // 2)),
