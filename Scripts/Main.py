@@ -83,11 +83,11 @@ def move_aim(event: Event):
         if abs(x - cursor_x) <= 2 and abs(y - cursor_y) <= 2:
             SHOOT = True
             VM.left_click()
-            time.sleep(0.1)
+            time.sleep(0.25)
             VM.right_click()
-            time.sleep(0.1)
+            time.sleep(0.25)
             VK.press_key(VK.char_to_keycode("r"))
-            time.sleep(0.1)
+            time.sleep(0.25)
             VM.right_down()
         else:
             SHOOT = False
