@@ -87,6 +87,8 @@ def move_aim(event: Event):
             VM.right_click()
             time.sleep(0.1)
             VK.press_key(VK.char_to_keycode("r"))
+            time.sleep(0.1)
+            VM.right_down()
         else:
             SHOOT = False
         VM.move_mouse_relative(TOX, TOY)
