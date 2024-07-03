@@ -191,7 +191,9 @@ class VirtualKeyboard:
             hexKeyCode (int): The virtual key code of the key to press and release.
         """
         self.key_down(hexKeyCode)
+        time.sleep(0.1)
         self.key_up(hexKeyCode)
+        time.sleep(0.1)
 
     def toggle_capslock(self):
         """
