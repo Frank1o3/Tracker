@@ -75,12 +75,12 @@ def move_aim(event: Event):
         if not POSITIONS:
             continue
         x, y = POSITIONS[0]
-        x += left + (w // 2) + 4
-        y += top + (h // 2) + 4
+        x += left + (w // 2) + 1
+        y += top + (h // 2) + 1
         cursor_x, cursor_y = VM.get_cursor_position()
         TOX = calculate(cursor_x, x, SENSITIVITY)
         TOY = calculate(cursor_y, y, SENSITIVITY)
-        if abs(x - cursor_x) < 5 and abs(y - cursor_y) < 5:
+        if abs(x - cursor_x) <= 2 and abs(y - cursor_y) <= 2:
             SHOOT = True
             VM.left_click()
             time.sleep(0.1)
