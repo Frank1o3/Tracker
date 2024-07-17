@@ -75,14 +75,14 @@ def move_aim(event: Event):
         if not POSITIONS:
             continue
         x, y = POSITIONS[0]
-        x += left + (w // 2) + 1
-        y += top + (h // 2) + 1
+        x += left + (w // 2) + 2
+        y += top + (h // 2) + 2
         cursor_x, cursor_y = VM.get_cursor_position()
         TOX = calculate(cursor_x, x, SENSITIVITY)
         TOY = calculate(cursor_y, y, SENSITIVITY)
-        if abs(x - cursor_x) <= 2 and abs(y - cursor_y) <= 2:
+        if abs(x - cursor_x) < 5 and abs(y - cursor_y) < 5:
             SHOOT = True
-            VM.left_click()
+            VM.left_down()
             time.sleep(0.25)
             VM.right_click()
             time.sleep(0.25)
@@ -91,6 +91,7 @@ def move_aim(event: Event):
             VM.right_down()
         else:
             SHOOT = False
+            VM.left_up()
         VM.move_mouse_relative(TOX, TOY)
         try:
             POSITIONS.pop(0)
@@ -135,7 +136,7 @@ def keyboard_event(event: kb.KeyboardEvent):
 
 if __name__ == "__main__":
     stop_event = Event()
-    kb.hook_key("q", keyboard_event, suppress=True)
+    kb.hook_key("f", keyboard_event, suppress=True)
     threads = [
         Thread(target=screenshot, args=(stop_event,)),
         Thread(target=detect, args=(stop_event,)),
