@@ -33,6 +33,6 @@ For Mac
 ```
 
 # Why?
-This was made for educational purpose so its not that good and dont use it in Phantom Foces >:(
+This was made for educational purpose to see if it's posible to have a pc play Phantom Foces but it's not that good and dont use it in Phantom Foces >:(
 
 This project is licensed under the MIT License. See the `LICENSE` file for details.
