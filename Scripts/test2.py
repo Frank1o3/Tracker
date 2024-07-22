@@ -7,184 +7,153 @@ import numpy as np
 import cv2 as cv
 import math
 import time
-import math
-
-TOX = 0
-TOY = 0
-FOV = 500
-SHOOT = False
-STOP = False
-FRAME = None
-DISTANCE = 0
-POSITIONS = []
-THRESHOLD = 0.35
-SENSITIVITY = 8
-VM = VirtualMouse()
-VK = VirtualKeyboard()
-
-POINT_COLOR = (179, 255, 255)  # BGR format for OpenCV
-TEMPLATE_IMAGE = cv.imread("images\\point.png", cv.IMREAD_GRAYSCALE)
 
 
-def Good(
-    rect: tuple[int, int, int, int], point: tuple[int, int], range: int = 10
-) -> bool:
-    """
-    Check if a point is within a rectangle and close to its center.
+class Aimbot:
+    def __init__(self, fov=500, threshold=0.5, sensitivity=7.5) -> None:
+        self.fov = fov
+        self.threshold = threshold
+        self.sensitivity = sensitivity
+        self.template_image = cv.imread("images\\point.png", cv.IMREAD_GRAYSCALE)
+        self.point_color = (179, 255, 255)  # BGR format for OpenCV
+        self.positions = []
+        self.frame = None
+        self.tox = 0
+        self.toy = 0
+        self.dx = 0
+        self.dy = 0
+        self.vm = VirtualMouse()
+        self.vk = VirtualKeyboard()
+        self.stop_event = Event()
+        self.threads = []
 
-    Args:
-        rect (tuple): A tuple containing the rectangle's coordinates and size (x, y, width, height).
-        point (tuple): A tuple containing the point's coordinates (x, y).
+    def calculate(self, x, to) -> None:
+        return math.ceil((to - x) / self.sensitivity)
 
-    Returns:
-        bool: True if the point is within the rectangle and close to its center, False otherwise.
-    """
-    Rx, Ry, Rw, Rh = rect
-    x, y = point
-    RCx = Rx + int(Rw / 2)
-    RCy = Ry + int(Rh / 2)
+    def screenshot(self) -> None:
+        sct = mss()
+        monitor = sct.monitors[0]
+        while not self.stop_event.is_set():
+            try:
+                x = (monitor["width"] - self.fov) // 2
+                y = (monitor["height"] - self.fov) // 2
+                monitor_area = (x, y, x + self.fov, y + self.fov)
+                img = ImageGrab.grab(monitor_area)
+                i = np.array(img)
+                i = cv.cvtColor(i, cv.COLOR_RGB2BGR)
 
-    # Check if the point is within the rectangle
-    if Rx <= x <= (Rx + Rw) and Ry <= y <= (Ry + Rh):
-        # Calculate the distance from the point to the rectangle's center
-        distance = math.sqrt((x - RCx) ** 2 + (y - RCy) ** 2)
-        # Check if the distance is less than 10 units
-        if distance < range:
-            return True
+                lower_bound = np.array(self.point_color) - np.array([20, 20, 20])
+                upper_bound = np.array(self.point_color) + np.array([20, 20, 20])
+                mask = cv.inRange(i, lower_bound, upper_bound)
+                self.frame = cv.bitwise_and(i, i, mask=mask)
+            except Exception as e:
+                print(f"Error in screenshot function: {e}")
 
-    return False
+    def detect(self) -> None:
+        if self.template_image is None:
+            print("Failed to load template image")
+            return
+        while not self.stop_event.is_set():
+            if self.frame is None:
+                continue
+            gray_frame = cv.cvtColor(self.frame, cv.COLOR_BGR2GRAY)
+            res = cv.matchTemplate(gray_frame, self.template_image, cv.TM_CCOEFF_NORMED)
+            loc = np.where(res >= self.threshold)
+            self.positions = [
+                (x, y, self.template_image.shape[1], self.template_image.shape[0])
+                for x, y in zip(*loc[::-1])
+            ]
 
+    def move_aim(self) -> None:
+        sct = mss()
+        monitor = sct.monitors[0]
+        left = (monitor["width"] - self.fov) // 2
+        top = (monitor["height"] - self.fov) // 2
+        while not self.stop_event.is_set():
+            cursor_x, cursor_y = self.vm.get_cursor_position()
+            if not self.positions:
+                continue
+            try:
+                x, y, w, h = self.positions.pop(0)
+                target_x = x + left + w // 2
+                target_y = y + top + h // 2
 
-def calculate(x: int, to: int, sensitivity: int) -> int:
-    return math.ceil((to - x) // sensitivity)
+                self.dx = target_x - cursor_x
+                self.dy = target_y - cursor_y
 
+                self.tox = self.calculate(cursor_x, target_x)
+                self.toy = self.calculate(cursor_y, target_y)
 
-def screenshot(event: Event):
-    sct = mss()
-    monitor = sct.monitors[0]
-    global FRAME
-    while not event.is_set():
-        x = (monitor["width"] - FOV) // 2
-        y = (monitor["height"] - FOV) // 2
-        monitor_area = (x, y, x + FOV, y + FOV)
-        img = ImageGrab.grab(monitor_area)
-        i = np.array(img)
-        # Correct the color inversion by converting from RGB to BGR
-        i = cv.cvtColor(i, cv.COLOR_RGB2BGR)
+                move_x = (
+                    min(self.tox, abs(self.dx))
+                    if self.dx >= 0
+                    else max(self.tox, -abs(self.dx))
+                )
+                move_y = (
+                    min(self.toy, abs(self.dy))
+                    if self.dy >= 0
+                    else max(self.toy, -abs(self.dy))
+                )
 
-        # Create a binary mask where POINT_COLOR is white and all else is black
-        lower_bound = np.array(POINT_COLOR) - np.array([20, 20, 20])
-        upper_bound = np.array(POINT_COLOR) + np.array([20, 20, 20])
-        mask = cv.inRange(i, lower_bound, upper_bound)
+                self.vm.move_mouse_relative(int(move_x), int(move_y))
+                if abs(self.tox) == 0 and abs(self.toy) == 0:
+                    self.vm.left_click(delay=0.5)
+            except IndexError:
+                pass
+            time.sleep(0.1)
 
-        # Apply the mask to filter out non-target areas
-        i = cv.bitwise_and(i, i, mask=mask)
-        FRAME = i
+    def display(self) -> None:
+        while not self.stop_event.is_set():
+            if self.frame is not None:
+                copy = self.frame.copy()
+                cv.putText(
+                    copy,
+                    f"ToX: {self.tox} ToY: {self.toy} X-Diff: {self.dx} Y-Diff: {self.dy}",
+                    (5, 35),
+                    cv.FONT_HERSHEY_COMPLEX_SMALL,
+                    1,
+                    (0, 255, 0),
+                    1,
+                    1,
+                )
+                arrow_end_x = (self.fov // 2) + int(self.tox)
+                arrow_end_y = (self.fov // 2) + int(self.toy)
+                cv.arrowedLine(
+                    copy,
+                    (self.fov // 2, self.fov // 2),
+                    (arrow_end_x, arrow_end_y),
+                    (50, 50, 255),
+                    5,
+                    1,
+                )
+                for x, y, w, h in self.positions:
+                    cv.rectangle(copy, (x, y), (x + w, y + h), (255, 0, 0), 1, 1)
+                cv.imshow("feed", copy)
+                cv.setWindowProperty("feed", cv.WND_PROP_FULLSCREEN, cv.WINDOW_NORMAL)
+                cv.setWindowProperty("feed", cv.WINDOW_FULLSCREEN, cv.WINDOW_NORMAL)
+                cv.setWindowProperty("feed", cv.WND_PROP_TOPMOST, 1)
+                cv.waitKey(1)
 
+    def keyboard_event(self, event: kb.KeyboardEvent) -> None:
+        if event.name == "f1":
+            self.stop_event.set()
 
-def detect(event: Event):
-    if TEMPLATE_IMAGE is None:
-        print("Failed to load template image")
-        return
-    global POSITIONS
-    while not event.is_set():
-        if FRAME is None:
-            continue
-        gray_frame = cv.cvtColor(FRAME, cv.COLOR_BGR2GRAY)
-        res = cv.matchTemplate(gray_frame, TEMPLATE_IMAGE, cv.TM_CCOEFF_NORMED)
-        loc = np.where(res >= THRESHOLD)
-        rects = [
-            (*pt, TEMPLATE_IMAGE.shape[1], TEMPLATE_IMAGE.shape[0])
-            for pt in zip(*loc[::-1])
+    def start(self) -> None:
+        kb.hook_key("f1", self.keyboard_event, suppress=True)
+        self.threads = [
+            Thread(target=self.screenshot),
+            Thread(target=self.detect),
+            Thread(target=self.move_aim),
+            Thread(target=self.display),
         ]
-        rects, _ = cv.groupRectangles(rects, groupThreshold=5, eps=0.2)
-        POSITIONS = [(x, y, w, h) for (x, y, w, h) in rects]
-
-
-def move_aim(event: Event):
-    global TOX, TOY, SHOOT, DISTANCE
-    sct = mss()
-    monitor = sct.monitors[0]
-    left = (monitor["width"] - FOV) // 2
-    top = (monitor["height"] - FOV) // 2
-    while not event.is_set():
-        cursor_x, cursor_y = VM.get_cursor_position()
-        if not POSITIONS:
-            CanShoot = False
-            x = 0
-            y = 0
-            TOX = 0
-            TOY = 0
-            continue
-        x, y, w, h = POSITIONS[0]
-        if x > 0:
-            x += left + int(w / 2)
-        else:
-            x += left - int(w / 2)
-        if cursor_y > 0:
-            y += top + int(h / 2)
-        else:
-            y += top - int(h / 2)
-        TOX = calculate(cursor_x, x, SENSITIVITY)
-        TOY = calculate(cursor_y, y, SENSITIVITY)
-        VM.move_mouse_relative(TOX, TOY)
-        if Good((x, y, w, h), (cursor_x, cursor_y), 10) and CanShoot:
-            VM.left_click()
-        try:
-            POSITIONS.pop(0)
-        except:
-            pass
-
-
-def display(event: Event):
-    while not event.is_set():
-        if FRAME is not None:
-            COPY = FRAME.copy()
-            cv.putText(
-                COPY,
-                f"ToX: {TOX} ToY: {TOY}",
-                (5, 35),
-                cv.FONT_ITALIC,
-                1,
-                (0, 255, 0),
-                2,
-                1,
-            )
-            cv.arrowedLine(
-                COPY,
-                ((FOV // 2), (FOV // 2)),
-                ((FOV // 2) + TOX, (FOV // 2) + TOY),
-                (0, 0, 255),
-                5,
-                1,
-            )
-            for x, y, w, h in POSITIONS:
-                cv.rectangle(COPY, (x, y), (x + w, y + h), (255, 0, 0), 3, 1)
-            cv.imshow("feed", COPY)
-            cv.setWindowProperty("feed", cv.WND_PROP_FULLSCREEN, cv.WINDOW_NORMAL)
-            cv.setWindowProperty("feed", cv.WND_PROP_TOPMOST, 1)
-            cv.waitKey(1)
-
-
-def keyboard_event(event: kb.KeyboardEvent):
-    global stop_event
-    stop_event.set()
+        for t in self.threads:
+            t.start()
+        self.stop_event.wait()
+        for t in self.threads:
+            t.join()
+        kb.unhook_all()
 
 
 if __name__ == "__main__":
-    stop_event = Event()
-    kb.hook_key("y", keyboard_event, suppress=True)
-    threads = [
-        Thread(target=screenshot, args=(stop_event,)),
-        Thread(target=detect, args=(stop_event,)),
-        Thread(target=move_aim, args=(stop_event,)),
-        Thread(target=display, args=(stop_event,)),
-    ]
-
-    for t in threads:
-        t.start()
-
-    stop_event.wait()
-    for t in threads:
-        t.join()
-    kb.unhook_all()
+    aimbot = Aimbot(sensitivity=6.5)
+    aimbot.start()

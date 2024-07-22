@@ -47,29 +47,29 @@ class VirtualMouse:
         ctypes.windll.user32.mouse_event(self.MOUSEEVENTF_MOVE, dx, dy, 0, 0)
         ctypes.windll.user32.SetCursorPos(x_orig + dx, y_orig + dy)
 
-    def left_click(self):
+    def left_click(self, delay: float = 0.1):
         """
         Perform a left mouse button click.
         """
         ctypes.windll.user32.mouse_event(self.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
-        time.sleep(0.1)
+        time.sleep(delay)
         ctypes.windll.user32.mouse_event(self.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
-        time.sleep(0.1)
-
+        time.sleep(delay)
+ 
     def left_down(self):
         ctypes.windll.user32.mouse_event(self.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
 
     def left_up(self):
         ctypes.windll.user32.mouse_event(self.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
 
-    def right_click(self):
+    def right_click(self, delay: float = 0.1):
         """
         Perform a right mouse button click.
         """
         ctypes.windll.user32.mouse_event(self.MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0)
-        time.sleep(0.1)
+        time.sleep(delay)
         ctypes.windll.user32.mouse_event(self.MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0)
-        time.sleep(0.1)
+        time.sleep(delay)
 
     def right_down(self):
         ctypes.windll.user32.mouse_event(self.MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0)
