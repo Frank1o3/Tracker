@@ -35,7 +35,10 @@ class VirtualMouse:
         ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
         return pt.x, pt.y
 
-    def move_mouse_relative(self, dx: int = 0, dy: int = 0):
+    def move_to(self, x: int, y: int):
+        ctypes.windll.user32.SetCursorPos(x, y)
+
+    def move_relative(self, dx: int = 0, dy: int = 0):
         """
         Move the mouse cursor relative to its current position.
 
@@ -54,8 +57,7 @@ class VirtualMouse:
         ctypes.windll.user32.mouse_event(self.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
         time.sleep(delay)
         ctypes.windll.user32.mouse_event(self.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
-        time.sleep(delay)
- 
+
     def left_down(self):
         ctypes.windll.user32.mouse_event(self.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
 
@@ -128,21 +130,20 @@ class VirtualKeyboard:
         "7": 0x37,
         "8": 0x38,
         "9": 0x39,
-        " ": 0x20,  # Space
-        "enter": 0x0D,  # Enter
-        "left_shift": 0xA0,  # Left Shift
-        "right_shift": 0xA1,  # Right Shift
-        "left_ctrl": 0xA2,  # Left Control
-        "right_ctrl": 0xA3,  # Right Control
-        "alt": 0x12,  # Alt
-        "esc": 0x1B,  # Escape
-        "backspace": 0x08,  # Backspace
-        "tab": 0x09,  # Tab
+        " ": 0x20,         # Space
+        "enter": 0x0D,     # Enter
+        "shift": 0x10,     # Shift
+        "left_ctrl": 0xA2, # Left Control
+        "right_ctrl": 0xA3,# Right Control
+        "alt": 0x12,       # Alt
+        "esc": 0x1B,       # Escape
+        "backspace": 0x08, # Backspace
+        "tab": 0x09,       # Tab
         "capslock": 0x14,  # Caps Lock
-        "left_arrow": 0x25,  # Left Arrow
+        "left_arrow": 0x25,# Left Arrow
         "up_arrow": 0x26,  # Up Arrow
-        "right_arrow": 0x27,  # Right Arrow
-        "down_arrow": 0x28,  # Down Arrow
+        "right_arrow": 0x27,# Right Arrow
+        "down_arrow": 0x28,# Down Arrow
     }
 
     def __init__(self) -> None:
@@ -191,9 +192,9 @@ class VirtualKeyboard:
             hexKeyCode (int): The virtual key code of the key to press and release.
         """
         self.key_down(hexKeyCode)
-        time.sleep(0.1)
+        time.sleep(0.05)  # Reduced sleep time for faster response
         self.key_up(hexKeyCode)
-        time.sleep(0.1)
+        time.sleep(0.05)  # Reduced sleep time for faster response
 
     def toggle_capslock(self):
         """
@@ -232,7 +233,7 @@ class VirtualKeyboard:
             if key.lower() == "ctrl":
                 self.key_down(self.char_to_keycode("left_ctrl"))
             elif key.lower() == "shift":
-                self.key_down(self.char_to_keycode("left_shift"))
+                self.key_down(self.char_to_keycode("shift"))
             elif key.lower() == "alt":
                 self.key_down(self.char_to_keycode("alt"))
             else:
@@ -243,12 +244,12 @@ class VirtualKeyboard:
                     raise ValueError(
                         f"Key '{key}' does not have a virtual key code mapping."
                     )
-        time.sleep(0.1)  # Optional delay between key presses
+        time.sleep(0.05)  # Reduced sleep time for faster response
         for key in args[::-1]:
             if key.lower() == "ctrl":
                 self.key_up(self.char_to_keycode("left_ctrl"))
             elif key.lower() == "shift":
-                self.key_up(self.char_to_keycode("left_shift"))
+                self.key_up(self.char_to_keycode("shift"))
             elif key.lower() == "alt":
                 self.key_up(self.char_to_keycode("alt"))
             else:
