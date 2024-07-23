@@ -8,28 +8,29 @@ import cv2 as cv
 import math
 import time
 
-# Link: https://www.roblox.com/games/299659045/test-place?privateServerLinkCode=92562549000761720927697701299718
-
 
 class Aimbot:
-    def __init__(self, fov=500, threshold=0.5, sensitivity=7.5) -> None:
-        self.fov = fov
-        self.threshold = threshold
-        self.sensitivity = sensitivity
+    def __init__(
+        self, fov=500, threshold=0.5, sensitivity=7.5, debug=True, Steady_Aim=False
+    ) -> None:
         self.template_image = cv.imread("images\\point.png", cv.IMREAD_GRAYSCALE)
-        self.point_color = (179, 255, 255)  # BGR format for OpenCV
+        self.point_color = (179, 255, 255)
+        self.sensitivity = sensitivity
+        self.Steady_Aim = Steady_Aim
+        self.vk = VirtualKeyboard()
+        self.threshold = threshold
+        self.Steady_Aim_Range = 15
+        self.stop_event = Event()
+        self.vm = VirtualMouse()
         self.positions = []
+        self.debug = debug
+        self.threads = []
         self.frame = None
-        self.move_x = 10000
-        self.move_y = 10000
+        self.fov = fov
         self.tox = 0
         self.toy = 0
         self.dx = 0
         self.dy = 0
-        self.vm = VirtualMouse()
-        self.vk = VirtualKeyboard()
-        self.stop_event = Event()
-        self.threads = []
 
     def calculate(self, x, to) -> None:
         return math.ceil((to - x) / self.sensitivity)
@@ -45,7 +46,6 @@ class Aimbot:
                 img = ImageGrab.grab(monitor_area)
                 i = np.array(img)
                 i = cv.cvtColor(i, cv.COLOR_RGB2BGR)
-
                 lower_bound = np.array(self.point_color) - np.array([20, 20, 20])
                 upper_bound = np.array(self.point_color) + np.array([20, 20, 20])
                 mask = cv.inRange(i, lower_bound, upper_bound)
@@ -76,51 +76,52 @@ class Aimbot:
         while not self.stop_event.is_set():
             cursor_x, cursor_y = self.vm.get_cursor_position()
             if not self.positions:
-                self.dx = 10000
-                self.dy = 10000
+                if kb.is_pressed("shift"):
+                    kb.release("shift")
                 continue
             try:
                 x, y, w, h = self.positions.pop(0)
                 target_x = x + left + w // 2
                 target_y = y + top + h // 2
-
                 self.dx = target_x - cursor_x
                 self.dy = target_y - cursor_y
-
                 self.tox = self.calculate(cursor_x, target_x)
                 self.toy = self.calculate(cursor_y, target_y)
-                self.move_x = (
+                move_x = (
                     min(self.tox, abs(self.dx))
                     if self.dx >= 0
                     else max(self.tox, -abs(self.dx))
                 )
-                self.move_y = (
+                move_y = (
                     min(self.toy, abs(self.dy))
                     if self.dy >= 0
                     else max(self.toy, -abs(self.dy))
                 )
-
-                self.vm.move_relative(int(self.move_x), int(self.move_y))
+                self.vm.move_relative(int(move_x), int(move_y))
+                if (
+                    (abs(move_x) < self.Steady_Aim_Range)
+                    and (abs(move_y) < self.Steady_Aim_Range)
+                    and self.Steady_Aim == True
+                ):
+                    kb.press("shift")
+                else:
+                    kb.release("shift")
+                if abs(move_x) == 0 and abs(move_y) == 0:
+                    self.vm.left_click()
+                    self.vm.right_up()
+                    time.sleep(3)
+                    self.vm.right_down()
             except IndexError:
                 pass
             time.sleep(0.1)
 
-    def shoot(self) -> None:
-        while not self.stop_event.is_set():
-            if abs(self.move_x) < 10 and abs(self.move_y) < 10:
-                kb.press("shift")
-            else:
-                kb.release("shift")
-            if abs(self.move_x) == 0 and abs(self.move_y) == 0:
-                self.vm.left_down()
-                self.vm.right_up()
-                time.sleep(3)
-                self.vm.right_down()
-            else:
-                self.vm.left_up()
-
     def display(self) -> None:
-        while not self.stop_event.is_set():
+        while self.stop_event.is_set():
+            if self.debug == False:
+                try:
+                    cv.destroyWindow("feed")
+                except:
+                    pass
             if self.frame is not None:
                 copy = self.frame.copy()
                 cv.putText(
@@ -144,7 +145,7 @@ class Aimbot:
                     1,
                 )
                 for x, y, w, h in self.positions:
-                    cv.rectangle(copy, (x, y), (x + w, y + h), (255, 0, 0), 1, 1)
+                    cv.rectangle(copy, (x, y), (x + w, y + h), (255, 0, 0), 2, 1)
                 cv.imshow("feed", copy)
                 cv.setWindowProperty("feed", cv.WND_PROP_FULLSCREEN, cv.WINDOW_NORMAL)
                 cv.setWindowProperty("feed", cv.WINDOW_FULLSCREEN, cv.WINDOW_NORMAL)
@@ -154,14 +155,20 @@ class Aimbot:
     def keyboard_event(self, event: kb.KeyboardEvent) -> None:
         if event.name == "f1":
             self.stop_event.set()
+        elif event.name == "f2" and event.event_type == "down":
+            self.Steady_Aim = not (self.Steady_Aim)
+        elif event.name == "f3" and event.event_type == "down":
+            self.debug = not (self.debug)
 
     def start(self) -> None:
         kb.hook_key("f1", self.keyboard_event, suppress=True)
+        kb.hook_key("f2", self.keyboard_event, suppress=True)
+        kb.hook_key("f3", self.keyboard_event, suppress=True)
         self.threads = [
             Thread(target=self.screenshot),
             Thread(target=self.detect),
             Thread(target=self.move_aim),
-            Thread(target=self.shoot),
+            Thread(target=self.display),
         ]
         for t in self.threads:
             t.start()
@@ -172,5 +179,5 @@ class Aimbot:
 
 
 if __name__ == "__main__":
-    aimbot = Aimbot(sensitivity=6.5)
+    aimbot = Aimbot(600, 0.5, 6.5)
     aimbot.start()
