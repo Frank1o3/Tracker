@@ -97,9 +97,9 @@ class Aimbot:
 
                 self.vm.move_mouse_relative(int(move_x), int(move_y))
                 if abs(self.tox) == 0 and abs(self.toy) == 0:
-                    self.vm.left_click(delay=0.5)
-                    self.vm.right_click(delay=0.5)
-                    time.sleep(1)
+                    self.vm.left_click()
+                    self.vm.right_click()
+                    time.sleep(2.9)
                     self.vm.right_down()
             except IndexError:
                 pass
