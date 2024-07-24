@@ -116,12 +116,13 @@ class Aimbot:
             time.sleep(0.1)
 
     def display(self) -> None:
-        while self.stop_event.is_set():
+        while not self.stop_event.is_set():
             if self.debug == False:
                 try:
                     cv.destroyWindow("feed")
                 except:
                     pass
+                continue
             if self.frame is not None:
                 copy = self.frame.copy()
                 cv.putText(
@@ -153,17 +154,15 @@ class Aimbot:
                 cv.waitKey(1)
 
     def keyboard_event(self, event: kb.KeyboardEvent) -> None:
-        if event.name == "f1":
+        if event.name == "f1" and event.event_type == "down":
             self.stop_event.set()
         elif event.name == "f2" and event.event_type == "down":
             self.Steady_Aim = not (self.Steady_Aim)
-        elif event.name == "f3" and event.event_type == "down":
-            self.debug = not (self.debug)
 
     def start(self) -> None:
         kb.hook_key("f1", self.keyboard_event, suppress=True)
         kb.hook_key("f2", self.keyboard_event, suppress=True)
-        kb.hook_key("f3", self.keyboard_event, suppress=True)
+        
         self.threads = [
             Thread(target=self.screenshot),
             Thread(target=self.detect),
@@ -179,5 +178,5 @@ class Aimbot:
 
 
 if __name__ == "__main__":
-    aimbot = Aimbot(600, 0.5, 6.5)
+    aimbot = Aimbot(500, 0.5, 6.5,True,False)
     aimbot.start()
