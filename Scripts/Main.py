@@ -11,7 +11,14 @@ import time
 
 class Aimbot:
     def __init__(
-        self, fov=500, threshold=0.5, sensitivity=7.5, debug=True, Steady_Aim=False
+        self,
+        fov=500,
+        threshold=0.5,
+        sensitivity=7.5,
+        Steady_Aim_Range=25,
+        debug=True,
+        Aim=True,
+        Steady_Aim=False,
     ) -> None:
         self.template_image = cv.imread("images\\point.png", cv.IMREAD_GRAYSCALE)
         self.point_color = (179, 255, 255)
@@ -19,13 +26,14 @@ class Aimbot:
         self.Steady_Aim = Steady_Aim
         self.vk = VirtualKeyboard()
         self.threshold = threshold
-        self.Steady_Aim_Range = 15
+        self.Steady_Aim_Range = Steady_Aim_Range
         self.stop_event = Event()
         self.vm = VirtualMouse()
         self.positions = []
         self.debug = debug
         self.threads = []
         self.frame = None
+        self.Aim = Aim
         self.fov = fov
         self.tox = 0
         self.toy = 0
@@ -104,13 +112,19 @@ class Aimbot:
                     and self.Steady_Aim == True
                 ):
                     kb.press("shift")
-                else:
+                elif (
+                    (abs(move_x) > self.Steady_Aim_Range)
+                    and (abs(move_y) > self.Steady_Aim_Range)
+                    and self.Steady_Aim == True
+                ):
                     kb.release("shift")
                 if abs(move_x) == 0 and abs(move_y) == 0:
                     self.vm.left_click()
-                    self.vm.right_up()
-                    time.sleep(3)
-                    self.vm.right_down()
+                    if self.Aim == True:
+                        self.vm.right_up()
+                        time.sleep(2.8)
+                        self.vm.right_down()
+                    time.sleep(0.1)
             except IndexError:
                 pass
             time.sleep(0.1)
@@ -127,8 +141,38 @@ class Aimbot:
                 copy = self.frame.copy()
                 cv.putText(
                     copy,
-                    f"ToX: {self.tox} ToY: {self.toy} X-Diff: {self.dx} Y-Diff: {self.dy}",
-                    (5, 35),
+                    f"ToX: {self.tox} ToY: {self.toy}",
+                    (5, 20),
+                    cv.FONT_HERSHEY_COMPLEX_SMALL,
+                    1,
+                    (0, 255, 0),
+                    1,
+                    1,
+                )
+                cv.putText(
+                    copy,
+                    f"X-Diff: {self.dx} Y-Diff: {self.dy}",
+                    (5, 40),
+                    cv.FONT_HERSHEY_COMPLEX_SMALL,
+                    1,
+                    (0, 255, 0),
+                    1,
+                    1,
+                )
+                cv.putText(
+                    copy,
+                    f"Steady Aim: {"Enabled" if self.Steady_Aim else "Disabled"}",
+                    (5, 60),
+                    cv.FONT_HERSHEY_COMPLEX_SMALL,
+                    1,
+                    (0, 255, 0),
+                    1,
+                    1,
+                )
+                cv.putText(
+                    copy,
+                    f"Aim Down Site: {"Enabled" if self.Aim else "Disabled"}",
+                    (5, 80),
                     cv.FONT_HERSHEY_COMPLEX_SMALL,
                     1,
                     (0, 255, 0),
@@ -157,12 +201,15 @@ class Aimbot:
         if event.name == "f1" and event.event_type == "down":
             self.stop_event.set()
         elif event.name == "f2" and event.event_type == "down":
+            self.Aim = not (self.Aim)
+        elif event.name == "f3" and event.event_type == "down":
             self.Steady_Aim = not (self.Steady_Aim)
 
     def start(self) -> None:
         kb.hook_key("f1", self.keyboard_event, suppress=True)
         kb.hook_key("f2", self.keyboard_event, suppress=True)
-        
+        kb.hook_key("f3", self.keyboard_event, suppress=True)
+
         self.threads = [
             Thread(target=self.screenshot),
             Thread(target=self.detect),
@@ -178,5 +225,5 @@ class Aimbot:
 
 
 if __name__ == "__main__":
-    aimbot = Aimbot(500, 0.5, 6.5,True,False)
+    aimbot = Aimbot(450, 0.5, 6.5, 35, True, False, False)
     aimbot.start()

@@ -1,136 +1,114 @@
-from threading import Thread, Event, Lock
-from PIL import ImageGrab
-import keyboard as kb
-from mss import mss
 import numpy as np
+import win32gui
+import win32ui
+import win32con
 import cv2 as cv
 
-FOV = 500
-FRAME = None
-FRAME_LOCK = Lock()
-Path = str(__file__).replace("Scripts\\test.py", "images\\Background.png")
-BACKGROUND = cv.imread(Path)
-BACKGROUND = cv.resize(BACKGROUND, (500, 500))
 
-# Variables to control the position of the circle image
-x_pos = 120
-y_pos = 170
+class WindowCapture:
 
+    def __init__(self, window_name):
+        # find the handle for the window we want to capture
+        self.hwnd = win32gui.FindWindow(None, window_name)
+        if not self.hwnd:
+            raise Exception(f"Window not found: {window_name}")
 
-def screenshot(event: Event):
-    sct = mss()
-    monitor = sct.monitors[0]
-    global FRAME
-    while not event.is_set():
-        x = (monitor["width"] - FOV) // 2
-        y = (monitor["height"] - FOV) // 2
-        monitor_area = (x, y, x + FOV, y + FOV)
-        img = ImageGrab.grab(bbox=monitor_area)  # Correct the bbox assignment
-        i = np.array(img)
-        with FRAME_LOCK:
-            FRAME = cv.cvtColor(i, cv.COLOR_RGB2BGR)
-            FRAME = cv.resize(FRAME, (220, 220))
-            radius = min(FRAME.shape[1], FRAME.shape[0]) // 2
-            mask = np.zeros(FRAME.shape[:2], dtype=np.uint8)
-            center = (FRAME.shape[1] // 2, FRAME.shape[0] // 2)
-            cv.circle(mask, center, radius, (255), thickness=-1)
-            FRAME = cv.bitwise_and(FRAME, FRAME, mask=mask)
-            border_color = (0, 0, 0)
-            border_thickness = 10
-            cv.circle(FRAME, center, radius, border_color, border_thickness)
+        # get the window size
+        window_rect = win32gui.GetWindowRect(self.hwnd)
+        self.w = window_rect[2] - window_rect[0]
+        self.h = window_rect[3] - window_rect[1]
 
+        # account for the window border and titlebar and cut them off
+        border_pixels = 8
+        titlebar_pixels = 30
+        self.w = self.w - (border_pixels * 2)
+        self.h = self.h - titlebar_pixels - border_pixels
+        self.cropped_x = border_pixels
+        self.cropped_y = titlebar_pixels
 
-def display(event: Event):
-    while not event.is_set():
-        with FRAME_LOCK:
-            if FRAME is None:
-                continue
+        # set the cropped coordinates offset so we can translate screenshot
+        # images into actual screen positions
+        self.offset_x = window_rect[0] + self.cropped_x
+        self.offset_y = window_rect[1] + self.cropped_y
 
-            display_image = BACKGROUND.copy()
-            cv.putText(
-                display_image,
-                "Target: (x,y)",
-                (5, 45),
-                cv.FONT_ITALIC,
-                1,
-                (0, 255, 0),
-                2,
-                1,
+    def get_screenshot(self):
+        try:
+            window_rect = win32gui.GetWindowRect(self.hwnd)
+            self.w = window_rect[2] - window_rect[0]
+            self.h = window_rect[3] - window_rect[1]
+
+            # account for the window border and titlebar and cut them off
+            border_pixels = 8
+            titlebar_pixels = 30
+            self.w = self.w - (border_pixels * 2)
+            self.h = self.h - titlebar_pixels - border_pixels
+            self.cropped_x = border_pixels
+            self.cropped_y = titlebar_pixels
+
+            # set the cropped coordinates offset so we can translate screenshot
+            # images into actual screen positions
+            self.offset_x = window_rect[0] + self.cropped_x
+            self.offset_y = window_rect[1] + self.cropped_y
+            # get the window image data
+            wDC = win32gui.GetWindowDC(self.hwnd)
+            dcObj = win32ui.CreateDCFromHandle(wDC)
+            cDC = dcObj.CreateCompatibleDC()
+            dataBitMap = win32ui.CreateBitmap()
+            dataBitMap.CreateCompatibleBitmap(dcObj, self.w, self.h)
+            cDC.SelectObject(dataBitMap)
+            cDC.BitBlt(
+                (0, 0),
+                (self.w, self.h),
+                dcObj,
+                (self.cropped_x, self.cropped_y),
+                win32con.SRCCOPY,
             )
 
-            # Calculate offsets and mask parameters
-            frame_height, frame_width = FRAME.shape[:2]
-            x_offset = x_pos - frame_width // 2
-            y_offset = y_pos - frame_height // 2
-            x_offset = max(0, min(display_image.shape[1] - frame_width, x_offset))
-            y_offset = max(0, min(display_image.shape[0] - frame_height, y_offset))
+            # convert the raw data into a format opencv can read
+            signedIntsArray = dataBitMap.GetBitmapBits(True)
+            img = np.frombuffer(signedIntsArray, dtype="uint8")
+            img.shape = (self.h, self.w, 4)
 
-            # Region of Interest (ROI)
-            roi = display_image[
-                y_offset : y_offset + frame_height, x_offset : x_offset + frame_width
-            ]
+            # free resources
+            dcObj.DeleteDC()
+            cDC.DeleteDC()
+            win32gui.ReleaseDC(self.hwnd, wDC)
+            win32gui.DeleteObject(dataBitMap.GetHandle())
 
-            # Create mask and apply
-            radius = min(frame_width, frame_height) // 2
-            mask = np.zeros((frame_height, frame_width), dtype=np.uint8)
-            center = (frame_width // 2, frame_height // 2)
-            cv.circle(mask, center, radius, (255), thickness=-1)
-            mask_inv = cv.bitwise_not(mask)
-            background_part = cv.bitwise_and(roi, roi, mask=mask_inv)
-            frame_part = cv.bitwise_and(FRAME, FRAME, mask=mask)
-            dst = cv.add(background_part, frame_part)
-            display_image[
-                y_offset : y_offset + frame_height, x_offset : x_offset + frame_width
-            ] = dst
+            # drop the alpha channel, or cv.matchTemplate() will throw an error
+            img = img[..., :3]
 
-            # Arrow line centered on the mask
-            arrow_start = (x_pos, y_pos)
-            # Calculate maximum valid length of the arrow line within the circle
-            length = min(
-                radius,
-                np.linalg.norm(
-                    np.array((x_pos, y_pos)) - np.array((x_pos, y_pos - radius))
-                ),
-            )
-            # Adjust the end of the arrow line to be within the circle
-            direction = np.array([0, -1])  # Straight up direction
-            arrow_end = np.array(arrow_start) + direction * length
-            arrow_end = tuple(map(int, arrow_end))
+            # make image C_CONTIGUOUS to avoid errors
+            img = np.ascontiguousarray(img)
 
-            # Create an overlay for transparency
-            overlay = display_image.copy()
-            cv.arrowedLine(
-                overlay, arrow_start, arrow_end, (255, 0, 0), 5, tipLength=0.1
-            )
+            return img
+        except Exception as e:
+            print(f"Error capturing window: {e}")
+            return None
 
-            # Apply transparency
-            alpha = 0.5
-            display_image = cv.addWeighted(overlay, alpha, display_image, 1 - alpha, 0)
+    @staticmethod
+    def list_window_names():
+        def winEnumHandler(hwnd, ctx):
+            if win32gui.IsWindowVisible(hwnd):
+                print(hex(hwnd), win32gui.GetWindowText(hwnd))
 
-            # Show the image
-            cv.imshow("feed", display_image)
-            cv.setWindowProperty("feed", cv.WND_PROP_FULLSCREEN, cv.WINDOW_NORMAL)
-            cv.setWindowProperty("feed", cv.WND_PROP_TOPMOST, 1)
-            cv.waitKey(1)
+        win32gui.EnumWindows(winEnumHandler, None)
+
+    def get_screen_position(self, pos):
+        return pos[0] + self.offset_x, pos[1] + self.offset_y
 
 
-def keyboard_event(event: kb.KeyboardEvent):
-    global stop_event
-    stop_event.set()
-
-
+# Example usage:
 if __name__ == "__main__":
-    stop_event = Event()
-    kb.hook_key("q", keyboard_event, suppress=True)
-    threads = [
-        Thread(target=screenshot, args=(stop_event,)),
-        Thread(target=display, args=(stop_event,)),
-    ]
-
-    for t in threads:
-        t.start()
-
-    stop_event.wait()
-    for t in threads:
-        t.join()
-    kb.unhook_all()
+    window_name = "roblox"
+    wc = WindowCapture(window_name)
+    wc.list_window_names()
+    while True:
+        # Capture screenshot
+        screenshot = wc.get_screenshot()
+        if screenshot is not None:
+            cv.imshow("Window Capture", screenshot)
+        else:
+            print("Failed to capture screenshot.")
+        if cv.waitKey(1) == ord("q"):
+            break
