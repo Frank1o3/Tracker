@@ -200,15 +200,9 @@ class Aimbot:
     def keyboard_event(self, event: kb.KeyboardEvent) -> None:
         if event.name == "f1" and event.event_type == "down":
             self.stop_event.set()
-        elif event.name == "f2" and event.event_type == "down":
-            self.Aim = not (self.Aim)
-        elif event.name == "f3" and event.event_type == "down":
-            self.Steady_Aim = not (self.Steady_Aim)
 
     def start(self) -> None:
         kb.hook_key("f1", self.keyboard_event, suppress=True)
-        kb.hook_key("f2", self.keyboard_event, suppress=True)
-        kb.hook_key("f3", self.keyboard_event, suppress=True)
 
         self.threads = [
             Thread(target=self.screenshot),
