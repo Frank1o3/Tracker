@@ -33,6 +33,7 @@ class Aimbot:
         self.debug = debug
         self.threads = []
         self.frame = None
+        self.toggle = 0
         self.Aim = Aim
         self.fov = fov
         self.tox = 0
@@ -84,45 +85,36 @@ class Aimbot:
         while not self.stop_event.is_set():
             cursor_x, cursor_y = self.vm.get_cursor_position()
             if not self.positions:
-                if kb.is_pressed("shift"):
+                if kb.is_pressed("shift") and self.toggle <= 15:
                     kb.release("shift")
+                    self.toggle += 1
                 continue
+            self.toggle = 0
             try:
                 x, y, w, h = self.positions.pop(0)
                 target_x = x + left + w // 2
                 target_y = y + top + h // 2
                 self.dx = target_x - cursor_x
                 self.dy = target_y - cursor_y
-                self.tox = self.calculate(cursor_x, target_x)
-                self.toy = self.calculate(cursor_y, target_y)
-                move_x = (
-                    min(self.tox, abs(self.dx))
-                    if self.dx >= 0
-                    else max(self.tox, -abs(self.dx))
-                )
-                move_y = (
-                    min(self.toy, abs(self.dy))
-                    if self.dy >= 0
-                    else max(self.toy, -abs(self.dy))
-                )
+                x = self.calculate(cursor_x, target_x)
+                y = self.calculate(cursor_y, target_y)
+                move_x = min(x, abs(self.dx)) if self.dx >= 0 else max(x, -abs(self.dx))
+                move_y = min(y, abs(self.dy)) if self.dy >= 0 else max(y, -abs(self.dy))
+                self.tox = move_x
+                self.toy = move_y
                 self.vm.move_relative(int(move_x), int(move_y))
                 if (
-                    (abs(move_x) < self.Steady_Aim_Range)
-                    and (abs(move_y) < self.Steady_Aim_Range)
-                    and self.Steady_Aim == True
-                ):
+                    (abs(move_x) <= self.Steady_Aim_Range)
+                    and (abs(move_y) <= self.Steady_Aim_Range)
+                ) and self.Steady_Aim == True:
                     kb.press("shift")
-                elif (
-                    (abs(move_x) > self.Steady_Aim_Range)
-                    and (abs(move_y) > self.Steady_Aim_Range)
-                    and self.Steady_Aim == True
-                ):
+                else:
                     kb.release("shift")
                 if abs(move_x) == 0 and abs(move_y) == 0:
                     self.vm.left_click()
                     if self.Aim == True:
                         self.vm.right_up()
-                        time.sleep(2.8)
+                        time.sleep(0.25)
                         self.vm.right_down()
                     time.sleep(0.1)
             except IndexError:
@@ -132,10 +124,6 @@ class Aimbot:
     def display(self) -> None:
         while not self.stop_event.is_set():
             if self.debug == False:
-                try:
-                    cv.destroyWindow("feed")
-                except:
-                    pass
                 continue
             if self.frame is not None:
                 copy = self.frame.copy()
@@ -219,5 +207,5 @@ class Aimbot:
 
 
 if __name__ == "__main__":
-    aimbot = Aimbot(450, 0.5, 6.5, 35, True, False, False)
+    aimbot = Aimbot(500, 0.5, 7.5, 20, True, True, False)
     aimbot.start()
