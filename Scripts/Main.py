@@ -9,7 +9,7 @@ import math
 import time
 
 
-class Aimbot:
+class Bot:
     def __init__(
         self,
         fov=500,
@@ -207,5 +207,5 @@ class Aimbot:
 
 
 if __name__ == "__main__":
-    aimbot = Aimbot(500, 0.5, 7.5, 20, True, True, False)
+    aimbot = Bot(500, 0.5, 7.5, 20, True, True, True)
     aimbot.start()
