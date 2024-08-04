@@ -102,7 +102,6 @@ class WindowCapture:
 if __name__ == "__main__":
     window_name = "roblox"
     wc = WindowCapture(window_name)
-    wc.list_window_names()
     while True:
         # Capture screenshot
         screenshot = wc.get_screenshot()
