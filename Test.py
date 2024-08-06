@@ -96,7 +96,6 @@ class Bot:
 
             # Determine the mode based on detection
             if self.mode in ["Idle", "Shooting"]:
-                time.sleep(0.1)
                 continue
             if not self.positions:
                 self.mode = "Scan"
@@ -124,7 +123,6 @@ class Bot:
                 if kb.is_pressed("shift") and self.toggle <= 15:
                     kb.release("shift")
                     self.toggle += 1
-                time.sleep(0.1)
                 continue
 
             self.toggle = 0
@@ -133,8 +131,6 @@ class Bot:
                 self.track_mode(cursor_x, cursor_y, left, top)
             except IndexError:
                 pass
-
-            time.sleep(0.1)
 
     def scan_mode(self) -> None:
         """Scan the area by moving the mouse left and right."""
@@ -194,7 +190,6 @@ class Bot:
         """Display debug information on the screen."""
         while not self.stop_event.is_set():
             if not self.debug:
-                time.sleep(0.1)
                 continue
 
             if self.frame is not None:
@@ -238,14 +233,14 @@ class Bot:
             frame,
             (self.fov // 2, self.fov // 2),
             (arrow_end_x, arrow_end_y),
-            (0, 255, 0),
+            (0, 0, 255),
             2,
         )
 
     def draw_detected_positions(self, frame) -> None:
         """Draw rectangles around detected positions."""
         for x, y, w, h in self.positions:
-            cv.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            cv.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
 
     def toggle_mode(self) -> None:
         """Toggle bot mode between Idle and Scan."""
