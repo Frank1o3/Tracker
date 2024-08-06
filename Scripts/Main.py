@@ -21,21 +21,24 @@ class Bot:
         Steady_Aim=False,
     ) -> None:
         self.template_image = cv.imread("images\\point.png", cv.IMREAD_GRAYSCALE)
+        self.Steady_Aim_Range = Steady_Aim_Range
         self.point_color = (179, 255, 255)
         self.sensitivity = sensitivity
         self.Steady_Aim = Steady_Aim
         self.vk = VirtualKeyboard()
         self.threshold = threshold
-        self.Steady_Aim_Range = Steady_Aim_Range
         self.stop_event = Event()
         self.vm = VirtualMouse()
+        self.reverse = False
         self.positions = []
         self.debug = debug
+        self.mode = "Idle"
         self.threads = []
         self.frame = None
         self.toggle = 0
         self.Aim = Aim
         self.fov = fov
+        self.moved = 0
         self.tox = 0
         self.toy = 0
         self.dx = 0
@@ -76,6 +79,13 @@ class Bot:
                 (x, y, self.template_image.shape[1], self.template_image.shape[0])
                 for x, y in zip(*loc[::-1])
             ]
+            if self.mode == "Idle" or self.mode == "Shotting":
+                time.sleep(0.1)
+                continue
+            if not self.positions:
+                self.mode = "Scan"
+            else:
+                self.mode = "Track"
 
     def move_aim(self) -> None:
         sct = mss()
@@ -84,10 +94,26 @@ class Bot:
         top = (monitor["height"] - self.fov) // 2
         while not self.stop_event.is_set():
             cursor_x, cursor_y = self.vm.get_cursor_position()
+            if self.mode == "Scan":
+                self.vm.right_down()
+                if self.moved > 360:
+                    self.reverse = True
+                elif self.moved < -360:
+                    self.reverse = False
+                if self.reverse == False:
+                    self.vm.move_relative(5)
+                    self.moved += 1
+                else:
+                    self.vm.move_relative(-5)
+                    self.moved -= 1
+                continue
+            elif self.mode == "Idle":
+                continue
             if not self.positions:
                 if kb.is_pressed("shift") and self.toggle <= 15:
                     kb.release("shift")
                     self.toggle += 1
+                time.sleep(0.1)
                 continue
             self.toggle = 0
             try:
@@ -111,12 +137,16 @@ class Bot:
                 else:
                     kb.release("shift")
                 if abs(move_x) == 0 and abs(move_y) == 0:
+                    self.mode = "Shotting"
+                    self.moved = 0
+                    self.reverse = not(self.reverse)
                     self.vm.left_click()
                     if self.Aim == True:
                         self.vm.right_up()
                         time.sleep(0.25)
                         self.vm.right_down()
-                    time.sleep(0.1)
+                    time.sleep(3.15)
+                    self.mode = "Track"
             except IndexError:
                 pass
             time.sleep(0.1)
@@ -124,6 +154,7 @@ class Bot:
     def display(self) -> None:
         while not self.stop_event.is_set():
             if self.debug == False:
+                time.sleep(0.1)
                 continue
             if self.frame is not None:
                 copy = self.frame.copy()
@@ -167,6 +198,16 @@ class Bot:
                     1,
                     1,
                 )
+                cv.putText(
+                    copy,
+                    f"Mode: {self.mode}",
+                    (5, 100),
+                    cv.FONT_HERSHEY_COMPLEX_SMALL,
+                    1,
+                    (0, 255, 0),
+                    1,
+                    1,
+                )
                 arrow_end_x = (self.fov // 2) + int(self.tox)
                 arrow_end_y = (self.fov // 2) + int(self.toy)
                 cv.arrowedLine(
@@ -188,9 +229,14 @@ class Bot:
     def keyboard_event(self, event: kb.KeyboardEvent) -> None:
         if event.name == "f1" and event.event_type == "down":
             self.stop_event.set()
+            return
+        elif event.name == "f2" and event.event_type == "down":
+            self.mode = "Scan"
+            return
 
     def start(self) -> None:
         kb.hook_key("f1", self.keyboard_event, suppress=True)
+        kb.hook_key("f2", self.keyboard_event, suppress=True)
 
         self.threads = [
             Thread(target=self.screenshot),
@@ -207,5 +253,5 @@ class Bot:
 
 
 if __name__ == "__main__":
-    aimbot = Bot(500, 0.5, 7.5, 20, True, True, True)
+    aimbot = Bot(500, 0.5, 7.5, 20, True, True, False)
     aimbot.start()
