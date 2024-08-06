@@ -106,6 +106,7 @@ class Bot:
                 else:
                     self.vm.move_relative(-5)
                     self.moved -= 1
+                time.sleep(0.1)
                 continue
             elif self.mode == "Idle":
                 continue
@@ -158,56 +159,25 @@ class Bot:
                 continue
             if self.frame is not None:
                 copy = self.frame.copy()
-                cv.putText(
-                    copy,
-                    f"ToX: {self.tox} ToY: {self.toy}",
-                    (5, 20),
-                    cv.FONT_HERSHEY_COMPLEX_SMALL,
-                    1,
-                    (0, 255, 0),
-                    1,
-                    1,
-                )
-                cv.putText(
-                    copy,
-                    f"X-Diff: {self.dx} Y-Diff: {self.dy}",
-                    (5, 40),
-                    cv.FONT_HERSHEY_COMPLEX_SMALL,
-                    1,
-                    (0, 255, 0),
-                    1,
-                    1,
-                )
-                cv.putText(
-                    copy,
-                    f"Steady Aim: {"Enabled" if self.Steady_Aim else "Disabled"}",
-                    (5, 60),
-                    cv.FONT_HERSHEY_COMPLEX_SMALL,
-                    1,
-                    (0, 255, 0),
-                    1,
-                    1,
-                )
-                cv.putText(
-                    copy,
-                    f"Aim Down Site: {"Enabled" if self.Aim else "Disabled"}",
-                    (5, 80),
-                    cv.FONT_HERSHEY_COMPLEX_SMALL,
-                    1,
-                    (0, 255, 0),
-                    1,
-                    1,
-                )
-                cv.putText(
-                    copy,
-                    f"Mode: {self.mode}",
-                    (5, 100),
-                    cv.FONT_HERSHEY_COMPLEX_SMALL,
-                    1,
-                    (0, 255, 0),
-                    1,
-                    1,
-                )
+                debug_info = [
+                    (f"ToX: {self.tox} ToY: {self.toy}", 5, 20),
+                    (f"X-Diff: {self.dx} Y-Diff: {self.dy}", 5, 40),
+                    (f"Steady Aim: {'Enabled' if self.Steady_Aim else 'Disabled'}", 5, 60),
+                    (f"Aim Down Site: {'Enabled' if self.Aim else 'Disabled'}", 5, 80),
+                    (f"Mode: {self.mode}", 5, 100),
+                ]
+
+                for text, x, y in debug_info:
+                    cv.putText(
+                        copy,
+                        text,
+                        (x, y),
+                        cv.FONT_HERSHEY_COMPLEX_SMALL,
+                        1,
+                        (0, 255, 0),
+                        1,
+                        1,
+                    )
                 arrow_end_x = (self.fov // 2) + int(self.tox)
                 arrow_end_y = (self.fov // 2) + int(self.toy)
                 cv.arrowedLine(

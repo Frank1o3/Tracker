@@ -131,6 +131,7 @@ class Bot:
                 self.track_mode(cursor_x, cursor_y, left, top)
             except IndexError:
                 pass
+        time.sleep(0.1)
 
     def scan_mode(self) -> None:
         """Scan the area by moving the mouse left and right."""
