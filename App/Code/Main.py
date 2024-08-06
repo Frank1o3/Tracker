@@ -1,4 +1,4 @@
-from Libs.Controller import VirtualMouse, VirtualKeyboard
+from Scripts.Controller import VirtualMouse, VirtualKeyboard
 from threading import Thread, Event
 from PIL import ImageGrab
 import keyboard as kb
