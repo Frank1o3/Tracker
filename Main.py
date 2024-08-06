@@ -106,7 +106,7 @@ class Bot:
                 else:
                     self.vm.move_relative(-5)
                     self.moved -= 1
-                time.sleep(0.1)
+                time.sleep(0.05)
                 continue
             elif self.mode == "Idle":
                 continue
@@ -201,7 +201,10 @@ class Bot:
             self.stop_event.set()
             return
         elif event.name == "f2" and event.event_type == "down":
-            self.mode = "Scan"
+            if self.mode == "Idle":
+                self.mode = "Scan"
+            else:
+                self.mode = "Idle"
             return
 
     def start(self) -> None:
@@ -223,5 +226,5 @@ class Bot:
 
 
 if __name__ == "__main__":
-    aimbot = Bot(500, 0.5, 7.5, 20, True, True, False)
+    aimbot = Bot(500, 0.5, 6.5, 20, True, True, False)
     aimbot.start()
