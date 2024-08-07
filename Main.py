@@ -69,6 +69,7 @@ class Bot:
         if self.template_image is None:
             print("Failed to load template image")
             return
+
         while not self.stop_event.is_set():
             if self.frame is None:
                 continue
@@ -79,9 +80,11 @@ class Bot:
                 (x, y, self.template_image.shape[1], self.template_image.shape[0])
                 for x, y in zip(*loc[::-1])
             ]
+
             if self.mode == "Idle" or self.mode == "Shotting":
                 time.sleep(0.1)
                 continue
+
             if not self.positions:
                 self.mode = "Scan"
             else:
@@ -92,6 +95,7 @@ class Bot:
         monitor = sct.monitors[0]
         left = (monitor["width"] - self.fov) // 2
         top = (monitor["height"] - self.fov) // 2
+
         while not self.stop_event.is_set():
             cursor_x, cursor_y = self.vm.get_cursor_position()
             if self.mode == "Scan":
@@ -106,16 +110,18 @@ class Bot:
                 else:
                     self.vm.move_relative(-5)
                     self.moved -= 1
-                time.sleep(0.05)
+                time.sleep(0.01)
                 continue
             elif self.mode == "Idle":
                 continue
+
             if not self.positions:
                 if kb.is_pressed("shift") and self.toggle <= 15:
                     kb.release("shift")
                     self.toggle += 1
                 time.sleep(0.1)
                 continue
+
             self.toggle = 0
             try:
                 x, y, w, h = self.positions.pop(0)
@@ -140,7 +146,7 @@ class Bot:
                 if abs(move_x) == 0 and abs(move_y) == 0:
                     self.mode = "Shotting"
                     self.moved = 0
-                    self.reverse = not(self.reverse)
+                    self.reverse = not (self.reverse)
                     self.vm.left_click()
                     if self.Aim == True:
                         self.vm.right_up()
@@ -162,7 +168,11 @@ class Bot:
                 debug_info = [
                     (f"ToX: {self.tox} ToY: {self.toy}", 5, 20),
                     (f"X-Diff: {self.dx} Y-Diff: {self.dy}", 5, 40),
-                    (f"Steady Aim: {'Enabled' if self.Steady_Aim else 'Disabled'}", 5, 60),
+                    (
+                        f"Steady Aim: {'Enabled' if self.Steady_Aim else 'Disabled'}",
+                        5,
+                        60,
+                    ),
                     (f"Aim Down Site: {'Enabled' if self.Aim else 'Disabled'}", 5, 80),
                     (f"Mode: {self.mode}", 5, 100),
                 ]
