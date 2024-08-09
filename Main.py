@@ -73,13 +73,26 @@ class Bot:
         while not self.stop_event.is_set():
             if self.frame is None:
                 continue
+
             gray_frame = cv.cvtColor(self.frame, cv.COLOR_BGR2GRAY)
             res = cv.matchTemplate(gray_frame, self.template_image, cv.TM_CCOEFF_NORMED)
             loc = np.where(res >= self.threshold)
-            self.positions = [
+
+            # Collect bounding boxes
+            boxes = [
                 (x, y, self.template_image.shape[1], self.template_image.shape[0])
                 for x, y in zip(*loc[::-1])
             ]
+
+            # Convert to the format required by groupRectangles
+            boxes = np.array(
+                [(x, y, x + w, y + h) for x, y, w, h in boxes], dtype=np.int32
+            )
+            boxes, weights = cv.groupRectangles(
+                boxes.tolist(), groupThreshold=1, eps=0.2
+            )
+
+            self.positions = [(x, y, w - x, h - y) for (x, y, w, h) in boxes]
 
             if self.mode == "Idle" or self.mode == "Shotting":
                 time.sleep(0.1)
@@ -99,10 +112,12 @@ class Bot:
         while not self.stop_event.is_set():
             cursor_x, cursor_y = self.vm.get_cursor_position()
             if self.mode == "Scan":
+                if kb.is_pressed("shift"):
+                    kb.release("shift")
                 self.vm.right_down()
-                if self.moved > 360:
+                if self.moved > 45:
                     self.reverse = True
-                elif self.moved < -360:
+                elif self.moved < -45:
                     self.reverse = False
                 if self.reverse == False:
                     self.vm.move_relative(5)
@@ -145,15 +160,13 @@ class Bot:
                     kb.release("shift")
                 if abs(move_x) == 0 and abs(move_y) == 0:
                     self.mode = "Shotting"
-                    self.moved = 0
-                    self.reverse = not (self.reverse)
                     self.vm.left_click()
                     if self.Aim == True:
                         self.vm.right_up()
                         time.sleep(0.25)
                         self.vm.right_down()
-                    time.sleep(3.15)
-                    self.mode = "Track"
+                    time.sleep(3.25)
+                    self.mode = "Scan"
             except IndexError:
                 pass
             time.sleep(0.1)
@@ -236,5 +249,5 @@ class Bot:
 
 
 if __name__ == "__main__":
-    aimbot = Bot(500, 0.5, 6.5, 20, True, True, False)
+    aimbot = Bot(500, 0.5, 7.5, 25, True, True, False)
     aimbot.start()
