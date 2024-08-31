@@ -48,7 +48,35 @@ class VirtualMouse:
         """
         x_orig, y_orig = self.get_cursor_position()
         ctypes.windll.user32.mouse_event(self.MOUSEEVENTF_MOVE, dx, dy, 0, 0)
-        ctypes.windll.user32.SetCursorPos(x_orig + dx, y_orig + dy)
+
+    def move_in_steps(self, dx: int = 0, dy: int = 0, steps: int = 10):
+        """
+        Move the mouse cursor relative to its current position with smoother movement.
+
+        Args:
+            dx (int): Horizontal movement in pixels.
+            dy (int): Vertical movement in pixels.
+            steps (int): Number of intermediate steps to make the movement smoother.
+        """
+        # Get the current position
+        x_orig, y_orig = self.get_cursor_position()
+
+        # Calculate step increments
+        step_dx = dx / steps
+        step_dy = dy / steps
+
+        for step in range(steps):
+            # Move the mouse by the step increments
+            ctypes.windll.user32.mouse_event(
+                self.MOUSEEVENTF_MOVE, int(step_dx), int(step_dy), 0, 0
+            )
+
+        # Move the remaining amount to ensure the final position is reached
+        remaining_dx = dx - int(step_dx) * steps
+        remaining_dy = dy - int(step_dy) * steps
+        ctypes.windll.user32.mouse_event(
+            self.MOUSEEVENTF_MOVE, remaining_dx, remaining_dy, 0, 0
+        )
 
     def left_click(self, delay: float = 0.1):
         """
@@ -130,20 +158,20 @@ class VirtualKeyboard:
         "7": 0x37,
         "8": 0x38,
         "9": 0x39,
-        " ": 0x20,         # Space
-        "enter": 0x0D,     # Enter
-        "shift": 0x10,     # Shift
-        "left_ctrl": 0xA2, # Left Control
-        "right_ctrl": 0xA3,# Right Control
-        "alt": 0x12,       # Alt
-        "esc": 0x1B,       # Escape
-        "backspace": 0x08, # Backspace
-        "tab": 0x09,       # Tab
+        " ": 0x20,  # Space
+        "enter": 0x0D,  # Enter
+        "shift": 0x10,  # Shift
+        "left_ctrl": 0xA2,  # Left Control
+        "right_ctrl": 0xA3,  # Right Control
+        "alt": 0x12,  # Alt
+        "esc": 0x1B,  # Escape
+        "backspace": 0x08,  # Backspace
+        "tab": 0x09,  # Tab
         "capslock": 0x14,  # Caps Lock
-        "left_arrow": 0x25,# Left Arrow
+        "left_arrow": 0x25,  # Left Arrow
         "up_arrow": 0x26,  # Up Arrow
-        "right_arrow": 0x27,# Right Arrow
-        "down_arrow": 0x28,# Down Arrow
+        "right_arrow": 0x27,  # Right Arrow
+        "down_arrow": 0x28,  # Down Arrow
     }
 
     def __init__(self) -> None:

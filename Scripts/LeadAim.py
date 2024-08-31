@@ -103,22 +103,6 @@ def calculate_lead_position(target_pos, target_vel, lead_time):
     return lead_x, lead_y
 
 
-# Function to draw projectile trajectory
-def draw_trajectory(start_pos, velocity, steps=50):
-    trajectory_points = []
-    x, y = start_pos
-    vx, vy = velocity
-
-    for _ in range(steps):
-        x += vx
-        y += vy
-        if x < 0 or x > WIDTH or y < 0 or y > HEIGHT:
-            break
-        trajectory_points.append((x, y))
-
-    if len(trajectory_points) > 1:
-        pygame.draw.lines(screen, BLACK, False, trajectory_points, 2)
-
 
 # Function to calculate projectile trajectory
 def calculate_trajectory(turret_pos, lead_pos, target_pos, steps=50):
@@ -237,7 +221,6 @@ while running:
     draw_turret(turret_x, turret_y)
     for px, py, vx, vy in projectiles:
         draw_projectile(px, py)
-        draw_trajectory((px, py), (vx, vy))
 
     pygame.display.flip()
     clock.tick(61)

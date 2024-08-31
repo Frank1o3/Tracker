@@ -32,7 +32,7 @@ class Bot:
         self.reverse = False
         self.positions = []
         self.debug = debug
-        self.mode = "Idle"
+        self.mode = "Offline"
         self.threads = []
         self.frame = None
         self.toggle = 0
@@ -94,63 +94,51 @@ class Bot:
 
             self.positions = [(x, y, w - x, h - y) for (x, y, w, h) in boxes]
 
-            if self.mode == "Idle" or self.mode == "Shotting":
+            if self.mode == "Offline" or self.mode == "Shotting":
                 time.sleep(0.1)
                 continue
 
-            if not self.positions:
-                self.mode = "Scan"
+            if self.positions:
+                self.mode = "Tracking"
             else:
-                self.mode = "Track"
+                self.mode = "Idle"
 
     def move_aim(self) -> None:
         sct = mss()
         monitor = sct.monitors[0]
         left = (monitor["width"] - self.fov) // 2
-        top = (monitor["height"] - self.fov) // 2
+        bottom = (monitor["height"] - self.fov) // 2
 
         while not self.stop_event.is_set():
-            cursor_x, cursor_y = self.vm.get_cursor_position()
-            if self.mode == "Scan":
-                if kb.is_pressed("shift"):
-                    kb.release("shift")
-                self.vm.right_down()
-                if self.moved > 45:
-                    self.reverse = True
-                elif self.moved < -45:
-                    self.reverse = False
-                if self.reverse == False:
-                    self.vm.move_relative(5)
-                    self.moved += 1
-                else:
-                    self.vm.move_relative(-5)
-                    self.moved -= 1
-                time.sleep(0.01)
-                continue
-            elif self.mode == "Idle":
+            if self.mode == "Offline" or self.mode == "Idle":
                 continue
 
             if not self.positions:
                 if kb.is_pressed("shift") and self.toggle <= 15:
                     kb.release("shift")
                     self.toggle += 1
-                time.sleep(0.1)
                 continue
 
             self.toggle = 0
+
+            cursor_x, cursor_y = self.vm.get_cursor_position()
             try:
                 x, y, w, h = self.positions.pop(0)
-                target_x = x + left + w // 2
-                target_y = y + top + h // 2
+                target_x = x + (left + (w // 2))
+                target_y = y + (bottom + (h // 2))
                 self.dx = target_x - cursor_x
                 self.dy = target_y - cursor_y
+
                 x = self.calculate(cursor_x, target_x)
                 y = self.calculate(cursor_y, target_y)
+
                 move_x = min(x, abs(self.dx)) if self.dx >= 0 else max(x, -abs(self.dx))
                 move_y = min(y, abs(self.dy)) if self.dy >= 0 else max(y, -abs(self.dy))
                 self.tox = move_x
                 self.toy = move_y
+
                 self.vm.move_relative(int(move_x), int(move_y))
+
                 if (
                     (abs(move_x) <= self.Steady_Aim_Range)
                     and (abs(move_y) <= self.Steady_Aim_Range)
@@ -158,15 +146,17 @@ class Bot:
                     kb.press("shift")
                 else:
                     kb.release("shift")
+
                 if abs(move_x) == 0 and abs(move_y) == 0:
                     self.mode = "Shotting"
                     self.vm.left_click()
                     if self.Aim == True:
                         self.vm.right_up()
-                        time.sleep(0.25)
+                        time.sleep(3.25)
                         self.vm.right_down()
-                    time.sleep(3.25)
-                    self.mode = "Scan"
+                    time.sleep(0.25)
+                    if self.mode == "Offline": return
+                    self.mode = "Tracking"
             except IndexError:
                 pass
             time.sleep(0.1)
@@ -212,7 +202,8 @@ class Bot:
                     1,
                 )
                 for x, y, w, h in self.positions:
-                    cv.rectangle(copy, (x, y), (x + w, y + h), (255, 0, 0), 2, 1)
+                    cv.rectangle(copy, (x, y), (x + w, y + h), (255, 0, 0), 3, 1)
+
                 cv.imshow("feed", copy)
                 cv.setWindowProperty("feed", cv.WND_PROP_FULLSCREEN, cv.WINDOW_NORMAL)
                 cv.setWindowProperty("feed", cv.WINDOW_FULLSCREEN, cv.WINDOW_NORMAL)
@@ -224,10 +215,10 @@ class Bot:
             self.stop_event.set()
             return
         elif event.name == "f2" and event.event_type == "down":
-            if self.mode == "Idle":
-                self.mode = "Scan"
-            else:
+            if self.mode == "Offline":
                 self.mode = "Idle"
+            else:
+                self.mode = "Offline"
             return
 
     def start(self) -> None:
@@ -249,5 +240,5 @@ class Bot:
 
 
 if __name__ == "__main__":
-    aimbot = Bot(500, 0.5, 7.5, 25, True, True, False)
+    aimbot = Bot(500, 0.5, 7, 25, True, False, False)
     aimbot.start()
