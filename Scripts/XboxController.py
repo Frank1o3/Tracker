@@ -14,6 +14,16 @@ class PhantomForcesController:
         self.gamepad.release_button(button=button)
         self.gamepad.update()
 
+    def hold_button(self, button):
+        """Hold a button on the gamepad."""
+        self.gamepad.press_button(button=button)
+        self.gamepad.update()
+
+    def release_button(self, button):
+        """Release a button on the gamepad."""
+        self.gamepad.release_button(button=button)
+        self.gamepad.update()
+
     def move_stick(self, stick, x, y):
         """Move a stick on the gamepad."""
         if stick == "left":
@@ -39,8 +49,10 @@ class PhantomForcesController:
     def aim_down_sights(self):
         """Simulate aiming down sights by pressing the left trigger."""
         self.trigger("left", 255)
-        time.sleep(0.5)  # Hold aim for a longer duration
-        self.trigger("left", 0)  # Release trigger
+
+    def stop_aiming_down_sights(self):
+        """Stop aiming down sights by releasing the left trigger."""
+        self.trigger("left", 0)
 
     def jump(self):
         """Simulate jumping by pressing the A button."""
@@ -73,6 +85,14 @@ class PhantomForcesController:
     def look_around(self, x, y):
         """Simulate looking around with the right joystick."""
         self.move_stick("right", x, y)
+
+    def start_steady_aim(self):
+        """Press the left stick button to steady aim."""
+        self.hold_button(vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_THUMB)
+
+    def stop_steady_aim(self):
+        """Release the left stick button to stop steady aim."""
+        self.release_button(vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_THUMB)
 
     def close(self):
         """Close the virtual gamepad."""
