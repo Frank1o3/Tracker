@@ -24,12 +24,20 @@ class PhantomForcesController:
         self.gamepad.release_button(button=button)
         self.gamepad.update()
 
-    def move_stick(self, stick, x, y):
+    def move_stick_float(self, stick, x: float, y: float):
         """Move a stick on the gamepad."""
         if stick == "left":
             self.gamepad.left_joystick_float(x_value_float=x, y_value_float=y)
         elif stick == "right":
             self.gamepad.right_joystick_float(x_value_float=x, y_value_float=y)
+        self.gamepad.update()
+
+    def move_stick(self, stick, x: int, y: int):
+        """Move a stick on the gamepad."""
+        if stick == "left":
+            self.gamepad.left_joystick(x_value_float=x, y_value_float=y)
+        elif stick == "right":
+            self.gamepad.right_joystick(x_value_float=x, y_value_float=y)
         self.gamepad.update()
 
     def trigger(self, trigger, value=255):
@@ -78,11 +86,19 @@ class PhantomForcesController:
         """Simulate a melee attack by pressing the right stick button."""
         self.press_button(vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_THUMB)
 
-    def move_character(self, x, y):
+    def move_character_float(self, x: float, y: float):
+        """Simulate moving the character with the left joystick."""
+        self.move_stick_float("left", x, y)
+
+    def look_around_float(self, x: float, y: float):
+        """Simulate looking around with the right joystick."""
+        self.move_stick_float("right", x, y)
+
+    def move_character(self, x: int, y: int):
         """Simulate moving the character with the left joystick."""
         self.move_stick("left", x, y)
 
-    def look_around(self, x, y):
+    def look_around(self, x: int, y: int):
         """Simulate looking around with the right joystick."""
         self.move_stick("right", x, y)
 

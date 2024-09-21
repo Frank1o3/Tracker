@@ -1,5 +1,6 @@
 opencv-python
 keyboard
+vgamepad
 pillow
 numpy
 black

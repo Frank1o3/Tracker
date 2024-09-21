@@ -1,26 +1,31 @@
-from Scripts.Controller import VirtualMouse, VirtualKeyboard
-from threading import Thread, Event
-from PIL import ImageGrab
-import keyboard as kb
-from mss import mss
-import numpy as np
-import cv2 as cv
+"""Import's"""
 import math
 import time
+from threading import Event, Thread
+from typing import Any
+
+import cv2
+import keyboard as kb
+import numpy as np
+from mss import mss
+from PIL import ImageGrab
+
+from Scripts.Controller import VirtualKeyboard, VirtualMouse
 
 
 class Bot:
+    """Main Class"""
     def __init__(
         self,
+        Aim=True,
         fov=500,
         threshold=0.5,
         sensitivity=7.5,
         Steady_Aim_Range=25,
         debug=True,
-        Aim=True,
         Steady_Aim=False,
     ) -> None:
-        self.template_image = cv.imread("images\\point.png", cv.IMREAD_GRAYSCALE)
+        self.template_image = cv2.imread("images/point.png",cv2.IMREAD_GRAYSCALE)
         self.Steady_Aim_Range = Steady_Aim_Range
         self.point_color = (179, 255, 255)
         self.sensitivity = sensitivity
@@ -30,11 +35,11 @@ class Bot:
         self.stop_event = Event()
         self.vm = VirtualMouse()
         self.reverse = False
-        self.positions = []
+        self.positions = Any
         self.debug = debug
         self.mode = "Offline"
-        self.threads = []
-        self.frame = None
+        self.threads = list[Thread]
+        self.frame = Any
         self.toggle = 0
         self.Aim = Aim
         self.fov = fov
@@ -44,10 +49,12 @@ class Bot:
         self.dx = 0
         self.dy = 0
 
-    def calculate(self, x, to) -> None:
+    def calculate(self, x, to) -> int:
+        """Calculate the amount needed to get to the target"""
         return math.ceil((to - x) / self.sensitivity)
 
     def screenshot(self) -> None:
+        """Takes the Screenshot"""
         sct = mss()
         monitor = sct.monitors[0]
         while not self.stop_event.is_set():
@@ -57,15 +64,16 @@ class Bot:
                 monitor_area = (x, y, x + self.fov, y + self.fov)
                 img = ImageGrab.grab(monitor_area)
                 i = np.array(img)
-                i = cv.cvtColor(i, cv.COLOR_RGB2BGR)
+                i = cv2.cvtColor(i, cv2.COLOR_RGB2BGR)
                 lower_bound = np.array(self.point_color) - np.array([20, 20, 20])
                 upper_bound = np.array(self.point_color) + np.array([20, 20, 20])
-                mask = cv.inRange(i, lower_bound, upper_bound)
-                self.frame = cv.bitwise_and(i, i, mask=mask)
+                mask = cv2.inRange(i, lower_bound, upper_bound)
+                self.frame = cv2.bitwise_and(i, i, mask=mask)
             except Exception as e:
                 print(f"Error in screenshot function: {e}")
 
     def detect(self) -> None:
+        """Takes care of finding the target"""
         if self.template_image is None:
             print("Failed to load template image")
             return
@@ -74,8 +82,8 @@ class Bot:
             if self.frame is None:
                 continue
 
-            gray_frame = cv.cvtColor(self.frame, cv.COLOR_BGR2GRAY)
-            res = cv.matchTemplate(gray_frame, self.template_image, cv.TM_CCOEFF_NORMED)
+            gray_frame = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY)
+            res = cv2.matchTemplate(gray_frame, self.template_image, cv2.TM_CCOEFF_NORMED)
             loc = np.where(res >= self.threshold)
 
             # Collect bounding boxes
@@ -88,7 +96,7 @@ class Bot:
             boxes = np.array(
                 [(x, y, x + w, y + h) for x, y, w, h in boxes], dtype=np.int32
             )
-            boxes, weights = cv.groupRectangles(
+            boxes, weights = cv2.groupRectangles(
                 boxes.tolist(), groupThreshold=1, eps=0.2
             )
 
@@ -104,6 +112,7 @@ class Bot:
                 self.mode = "Idle"
 
     def move_aim(self) -> None:
+        """Moves the cursor"""
         sct = mss()
         monitor = sct.monitors[0]
         left = (monitor["width"] - self.fov) // 2
@@ -147,23 +156,25 @@ class Bot:
                 else:
                     kb.release("shift")
 
-                if abs(move_x) == 0 and abs(move_y) == 0:
-                    self.mode = "Shotting"
-                    self.vm.left_click()
-                    if self.Aim == True:
-                        self.vm.right_up()
-                        time.sleep(3.25)
-                        self.vm.right_down()
-                    time.sleep(0.25)
-                    if self.mode == "Offline": return
-                    self.mode = "Tracking"
+                # if abs(move_x) == 0 and abs(move_y) == 0:
+                #     self.mode = "Shotting"
+                #     self.vm.left_down()
+                #     if self.Aim == True:
+                #         self.vm.right_up()
+                #         time.sleep(5)
+                #         self.vm.right_down()
+                #     if self.mode == "Offline": return
+                #     self.mode = "Tracking"
+                # else:
+                #     self.vm.left_up()
             except IndexError:
                 pass
             time.sleep(0.1)
 
     def display(self) -> None:
+        """Takes care of showing the user data"""
         while not self.stop_event.is_set():
-            if self.debug == False:
+            if self.debug is False:
                 time.sleep(0.1)
                 continue
             if self.frame is not None:
@@ -181,11 +192,11 @@ class Bot:
                 ]
 
                 for text, x, y in debug_info:
-                    cv.putText(
+                    cv2.putText(
                         copy,
                         text,
                         (x, y),
-                        cv.FONT_HERSHEY_COMPLEX_SMALL,
+                        cv2.FONT_HERSHEY_COMPLEX_SMALL,
                         1,
                         (0, 255, 0),
                         1,
@@ -193,7 +204,7 @@ class Bot:
                     )
                 arrow_end_x = (self.fov // 2) + int(self.tox)
                 arrow_end_y = (self.fov // 2) + int(self.toy)
-                cv.arrowedLine(
+                cv2.arrowedLine(
                     copy,
                     (self.fov // 2, self.fov // 2),
                     (arrow_end_x, arrow_end_y),
@@ -202,15 +213,16 @@ class Bot:
                     1,
                 )
                 for x, y, w, h in self.positions:
-                    cv.rectangle(copy, (x, y), (x + w, y + h), (255, 0, 0), 3, 1)
+                    cv2.rectangle(copy, (x, y), (x + w, y + h), (255, 0, 0), 3, 1)
 
-                cv.imshow("feed", copy)
-                cv.setWindowProperty("feed", cv.WND_PROP_FULLSCREEN, cv.WINDOW_NORMAL)
-                cv.setWindowProperty("feed", cv.WINDOW_FULLSCREEN, cv.WINDOW_NORMAL)
-                cv.setWindowProperty("feed", cv.WND_PROP_TOPMOST, 1)
-                cv.waitKey(1)
+                cv2.imshow("feed", copy)
+                cv2.setWindowProperty("feed", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
+                cv2.setWindowProperty("feed", cv2.WINDOW_FULLSCREEN, cv2.WINDOW_NORMAL)
+                cv2.setWindowProperty("feed", cv2.WND_PROP_TOPMOST, 1)
+                cv2.waitKey(1)
 
     def keyboard_event(self, event: kb.KeyboardEvent) -> None:
+        """Handles keyboard events"""
         if event.name == "f1" and event.event_type == "down":
             self.stop_event.set()
             return
@@ -222,6 +234,7 @@ class Bot:
             return
 
     def start(self) -> None:
+        """Starts the scaning and key event handling"""
         kb.hook_key("f1", self.keyboard_event, suppress=True)
         kb.hook_key("f2", self.keyboard_event, suppress=True)
 
