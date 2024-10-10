@@ -1,23 +1,13 @@
 import ctypes
 import time
-
+import random
+import math
 
 class VirtualMouse:
-    """
-    A class to simulate mouse movements and clicks using ctypes and Windows API.
-    """
-
     class POINT(ctypes.Structure):
-        """
-        Structure to represent a point with x and y coordinates.
-        """
-
         _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
 
     def __init__(self) -> None:
-        """
-        Initialize the VirtualMouse object with necessary constants for mouse events.
-        """
         self.MOUSEEVENTF_MOVE = 0x0001
         self.MOUSEEVENTF_LEFTDOWN = 0x0002
         self.MOUSEEVENTF_LEFTUP = 0x0004
@@ -25,12 +15,6 @@ class VirtualMouse:
         self.MOUSEEVENTF_RIGHTUP = 0x0010
 
     def get_cursor_position(self):
-        """
-        Get the current cursor position on the screen.
-
-        Returns:
-            tuple: (x, y) coordinates of the cursor.
-        """
         pt = VirtualMouse.POINT()
         ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
         return pt.x, pt.y
@@ -39,49 +23,59 @@ class VirtualMouse:
         ctypes.windll.user32.SetCursorPos(x, y)
 
     def move_relative(self, dx: int = 0, dy: int = 0):
-        """
-        Move the mouse cursor relative to its current position.
-
-        Args:
-            dx (int): Horizontal movement in pixels.
-            dy (int): Vertical movement in pixels.
-        """
-        x_orig, y_orig = self.get_cursor_position()
         ctypes.windll.user32.mouse_event(self.MOUSEEVENTF_MOVE, dx, dy, 0, 0)
 
     def move_in_steps(self, dx: int = 0, dy: int = 0, steps: int = 10):
-        """
-        Move the mouse cursor relative to its current position with smoother movement.
-
-        Args:
-            dx (int): Horizontal movement in pixels.
-            dy (int): Vertical movement in pixels.
-            steps (int): Number of intermediate steps to make the movement smoother.
-        """
-        # Get the current position
-        x_orig, y_orig = self.get_cursor_position()
-
-        # Calculate step increments
         step_dx = dx / steps
         step_dy = dy / steps
 
         for step in range(steps):
-            # Move the mouse by the step increments
             ctypes.windll.user32.mouse_event(
                 self.MOUSEEVENTF_MOVE, int(step_dx), int(step_dy), 0, 0
             )
-
-        # Move the remaining amount to ensure the final position is reached
         remaining_dx = dx - int(step_dx) * steps
         remaining_dy = dy - int(step_dy) * steps
         ctypes.windll.user32.mouse_event(
             self.MOUSEEVENTF_MOVE, remaining_dx, remaining_dy, 0, 0
         )
 
+    def move_in_curve(self, dx: int = 0, dy: int = 0, steps: int = 10):
+        """
+        Move the mouse cursor in a curved path with random control point offsets.
+
+        Args:
+            dx (int): Final horizontal movement in pixels.
+            dy (int): Final vertical movement in pixels.
+            steps (int): Number of intermediate steps to make the movement smoother.
+        """
+        # Get the current position
+        x_start, y_start = self.get_cursor_position()
+        x_end = x_start + dx
+        y_end = y_start + dy
+
+        # Generate random control point offsets
+        control_offset_x = random.randint(-5, 5)
+        control_offset_y = random.randint(-5, 5)
+
+        # Calculate the control point coordinates
+        x_control = x_start + control_offset_x
+        y_control = y_start + control_offset_y
+
+        # Quadratic Bezier curve formula: B(t) = (1-t)^2*P0 + 2*(1-t)*t*P1 + t^2*P2
+        for i in range(steps + 1):
+            t = i / steps
+
+            # Calculate intermediate positions using Bezier curve
+            x = int((1 - t) ** 2 * x_start + 2 * (1 - t)
+                    * t * x_control + t ** 2 * x_end)
+            y = int((1 - t) ** 2 * y_start + 2 * (1 - t)
+                    * t * y_control + t ** 2 * y_end)
+            print("X: ", x, "Y: ", y)
+            # Move to the calculated position
+            self.move_relative(math.ceil(x), math.ceil(y))
+            time.sleep(0.01)  # Small delay to simulate smoother movement
+
     def left_click(self, delay: float = 0.1):
-        """
-        Perform a left mouse button click.
-        """
         ctypes.windll.user32.mouse_event(self.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
         time.sleep(delay)
         ctypes.windll.user32.mouse_event(self.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
@@ -93,16 +87,15 @@ class VirtualMouse:
         ctypes.windll.user32.mouse_event(self.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
 
     def right_click(self, delay: float = 0.1):
-        """
-        Perform a right mouse button click.
-        """
-        ctypes.windll.user32.mouse_event(self.MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0)
+        ctypes.windll.user32.mouse_event(
+            self.MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0)
         time.sleep(delay)
         ctypes.windll.user32.mouse_event(self.MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0)
         time.sleep(delay)
 
     def right_down(self):
-        ctypes.windll.user32.mouse_event(self.MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0)
+        ctypes.windll.user32.mouse_event(
+            self.MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0)
 
     def right_up(self):
         ctypes.windll.user32.mouse_event(self.MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0)
@@ -160,7 +153,8 @@ class VirtualKeyboard:
         "9": 0x39,
         " ": 0x20,  # Space
         "enter": 0x0D,  # Enter
-        "shift": 0x10,  # Shift
+        "left_shift": 0xA0,  # Left Shift
+        "right_shift": 0xA1,  # Right Shift
         "left_ctrl": 0xA2,  # Left Control
         "right_ctrl": 0xA3,  # Right Control
         "alt": 0x12,  # Alt
@@ -246,7 +240,8 @@ class VirtualKeyboard:
                 self.press_key(keycode)
             else:
                 raise ValueError(
-                    f"Character '{char}' does not have a virtual key code mapping."
+                    f"Character '{
+                        char}' does not have a virtual key code mapping."
                 )
 
     def type_key_combination(self, *args):

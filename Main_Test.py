@@ -1,15 +1,12 @@
-"""Import's"""
 import math
 import time
-from threading import Event, Thread
-
+from random import uniform
+from threading import Event, Thread, Lock
 import cv2
 import keyboard as kb
 import numpy as np
 from mss import mss
-from PIL import ImageGrab
-
-from Scripts.Controller import VirtualKeyboard, VirtualMouse
+from Libs.Controller import VirtualKeyboard, VirtualMouse
 
 
 class Bot:
@@ -20,61 +17,73 @@ class Bot:
         fov=500,
         threshold=0.5,
         sensitivity=7.5,
-        Steady_Aim_Range=25,
+        steady_aim_range=25,
         debug=True,
-        Aim=True,
-        Steady_Aim=False,
+        aim=True,
+        steady_aim=False,
+        auto_shoot=True
     ) -> None:
         self.template_image = cv2.imread(
             "images/point.png", cv2.IMREAD_GRAYSCALE)
-        self.Steady_Aim_Range = Steady_Aim_Range
+        self.steady_aim_range = steady_aim_range
         self.point_color = (179, 255, 255)
         self.sensitivity = sensitivity
-        self.Steady_Aim = Steady_Aim
+        self.steady_aim = steady_aim
+        self.auto_shoot = auto_shoot
         self.vk = VirtualKeyboard()
         self.threshold = threshold
         self.stop_event = Event()
         self.vm = VirtualMouse()
-        self.positions = None
+        self.positions = []
+        self.lock = Lock()
         self.debug = debug
         self.mode = "Offline"
         self.threads = list[Thread]
         self.frame = None
-        self.Aim = Aim
+        self.aim = aim
         self.fov = fov
-        self.tox = 0
-        self.toy = 0
-        self.dx = 0
-        self.dy = 0
-
-    def calculate(self, x, to) -> int:
-        """Calculate the amount needed to get to the target"""
-        return math.ceil((to - x) / self.sensitivity)
-
-    def screenshot(self) -> None:
-        """Takes the Screenshot"""
+        self.tox, self.toy = 0, 0
+        self.dx, self.dy = 0, 0
+        if self.debug == True and self.fov != 400:
+            self.fov = 400
         sct = mss()
         monitor = sct.monitors[0]
-
         x = (monitor["width"] - self.fov) // 2
         y = (monitor["height"] - self.fov) // 2
-        monitor_area = (x, y, x + self.fov, y + self.fov)
+        self.monitor_area = {"left": x, "top": y,
+                             "width": self.fov, "height": self.fov}
+        self.sct = sct
+
+    def calculate(self, current, target) -> int:
+        """Calculate the delta to reach the target."""
+        return math.ceil((target - current) / self.sensitivity)
+
+    def screenshot(self) -> None:
+        """Capture screenshots from the specified monitor area."""
+        sct = mss()
+        monitor = sct.monitors[0]
+        x = (monitor["width"] - self.fov) // 2
+        y = (monitor["height"] - self.fov) // 2
+        monitor_area = {"left": x, "top": y,
+                        "width": self.fov, "height": self.fov}
+
         while not self.stop_event.is_set():
-            try:
-                img = ImageGrab.grab(monitor_area)
-                i = np.array(img)
-                i = cv2.cvtColor(i, cv2.COLOR_RGB2BGR)
-                lower_bound = np.array(self.point_color) - np.array([35, 35, 35])
-                upper_bound = np.array(self.point_color) + np.array([35, 35, 35])
-                mask = cv2.inRange(i, lower_bound, upper_bound)
-                self.frame = cv2.bitwise_and(i, i, mask=mask)
-            except Exception as e:
-                print(f"Error in screenshot function: {e}")
+            img = np.array(sct.grab(monitor_area))
+
+            # Convert BGRA to BGR
+            img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+
+            lower_bound = np.array(self.point_color) - np.array([30, 30, 30])
+            upper_bound = np.array(self.point_color) + np.array([30, 30, 30])
+
+            # Use inRange on BGR image
+            mask = cv2.inRange(img, lower_bound, upper_bound)
+            self.frame = cv2.bitwise_and(img, img, mask=mask)
 
     def detect(self) -> None:
-        """Takes care of finding the target"""
+        """Detect target positions using template matching."""
         if self.template_image is None:
-            print("Failed to load template image")
+            print("Failed to load template image.")
             return
 
         while not self.stop_event.is_set():
@@ -86,77 +95,66 @@ class Bot:
                 gray_frame, self.template_image, cv2.TM_CCOEFF_NORMED)
             loc = np.where(res >= self.threshold)
 
-            # Collect bounding boxes
             boxes = [
                 (x, y, self.template_image.shape[1],
                  self.template_image.shape[0])
                 for x, y in zip(*loc[::-1])
             ]
+            boxes = np.array(boxes, dtype=np.int64)
+            boxes, _ = cv2.groupRectangles(
+                boxes.tolist(), groupThreshold=1, eps=0.3)
 
-            # Convert to the format required by groupRectangles
-            boxes = np.array(
-                [(x, y, x + w, y + h) for x, y, w, h in boxes], dtype=np.int64
-            )
-            boxes, weights = cv2.groupRectangles(
-                boxes.tolist(), groupThreshold=2, eps=0.2
-            )
-
-            self.positions = [(x, y, w - x, h - y) for (x, y, w, h) in boxes]
-
-            if self.mode == "Offline":
-                continue
-
-            if self.positions:
-                self.mode = "Tracking"
-            else:
-                self.mode = "Idle"
+            with self.lock:
+                self.positions = [(x, y, w, h) for x, y, w, h in boxes]
 
     def move_aim(self) -> None:
-        """Moves the cursor"""
+        """Control the cursor movement based on detected positions."""
         sct = mss()
         monitor = sct.monitors[0]
         left = (monitor["width"] - self.fov) // 2
-        bottom = (monitor["height"] - self.fov) // 2
-
+        top = (monitor["height"] - self.fov) // 2
+        move_x = 0
+        move_y = 0
         while not self.stop_event.is_set():
-            if self.mode == "Offline" or self.mode == "Idle":
+            if self.mode not in {"Tracking"} or not self.positions:
+                kb.release("shift")
                 time.sleep(0.1)
                 continue
-            
+
             cursor_x, cursor_y = self.vm.get_cursor_position()
-            try:
-
+            with self.lock:
+                if not self.positions:
+                    continue
                 x, y, w, h = self.positions.pop(0)
-                
-                target_x = x + (left + (w // 2))
-                target_y = y + (bottom + (h // 2))
-                self.dx = target_x - cursor_x
-                self.dy = target_y - cursor_y
-                
-                x = self.calculate(cursor_x, target_x)
-                y = self.calculate(cursor_y, target_y)
 
-                self.tox = min(x, abs(self.dx)) if self.dx >= 0 else max(
-                    x, -abs(self.dx))
-                self.toy = min(y, abs(self.dy)) if self.dy >= 0 else max(
-                    y, -abs(self.dy))
-                if self.tox == 0 and self.toy == 0:
-                    if self.dx > (w // 2):
-                        self.tox = -1
-                    elif self.dx < -1:
-                        self.tox = 1
-                    else:
-                        self.tox = 0
-                    if self.dy > (h // 2):
-                        self.toy = 1
-                    elif self.dy < -1:
-                        self.toy = -1
-                    else:
-                        self.toy = 0
-                self.vm.move_relative(int(self.tox), int(self.toy))
-            except Exception:
-                pass
-            time.sleep(0.1)
+            # Calculate relative movement
+            target_x, target_y = (left + x) + (w // 3), (top + y) + (h // 3)
+            self.dx, self.dy = target_x - cursor_x, target_y - cursor_y
+            self.tox = min(self.calculate(cursor_x, target_x), abs(self.dx))
+            self.toy = min(self.calculate(cursor_y, target_y), abs(self.dy))
+            if self.steady_aim:
+                if abs(self.tox) < self.steady_aim_range and abs(self.toy) < self.steady_aim_range:
+                    kb.press("shift")
+                else:
+                    kb.release("shift")
+            if abs(self.tox) < 1 and abs(self.toy) < 1 and self.auto_shoot:
+                self.vm.left_down()
+                time.sleep(0.5)
+                if self.aim:
+                    self.vm.right_up()
+                self.vm.left_up()
+                time.sleep(0.5)
+                if self.aim:
+                    self.vm.right_down()
+                    time.sleep(0.5)
+                self.tox, self.toy = uniform(-3, 3), uniform(-3, 3)
+            else:
+                move_x = self.tox
+                move_y = self.toy
+
+            # Move the mouse cursor
+            self.vm.move_relative(int(move_x), int(move_y))
+            time.sleep(0.05)  # Control movement rate
 
     def display(self) -> None:
         """Takes care of showing the user data"""
@@ -169,14 +167,13 @@ class Bot:
                         (f"X-Diff: {self.dx} Y-Diff: {self.dy}", 5, 40),
                         (
                             f"Steady Aim: {
-                                'Enabled' if self.Steady_Aim else 'Disabled'}",
+                                'Enabled' if self.steady_aim else 'Disabled'}",
                             5,
                             60,
                         ),
-                        (f"Aim Down Site: {'Enabled' if self.Aim else 'Disabled'}", 5, 80),
+                        (f"Aim Down Site: {'Enabled' if self.aim else 'Disabled'}", 5, 80),
                         (f"Mode: {self.mode}", 5, 100),
                     ]
-
                     for text, x, y in debug_info:
                         cv2.putText(
                             copy,
@@ -216,10 +213,13 @@ class Bot:
         """Handles keyboard events"""
         if event.name == "f1" and event.event_type == "down":
             self.stop_event.set()
+            self.vm.left_up()
+            self.vm.right_up()
+            kb.release("shift")
             return
         elif event.name == "f2" and event.event_type == "down":
             if self.mode == "Offline":
-                self.mode = "Idle"
+                self.mode = "Tracking"
             else:
                 self.mode = "Offline"
             return
@@ -250,5 +250,5 @@ class Bot:
 
 
 if __name__ == "__main__":
-    aimbot = Bot(400, 0.75, 7.5, 25, True, False, False)
+    aimbot = Bot(700, 0.75, 8.5, 25, True, True, False, True)
     aimbot.start()
