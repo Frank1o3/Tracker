@@ -9,7 +9,8 @@ import numpy as np
 from mss import mss
 from PIL import ImageGrab
 
-from Scripts.Controller import VirtualKeyboard, VirtualMouse
+from Libs.Aim import get_future_position
+from Libs.Controller import VirtualKeyboard, VirtualMouse
 
 
 class Bot:
@@ -22,15 +23,12 @@ class Bot:
         sensitivity=7.5,
         Steady_Aim_Range=25,
         debug=True,
-        Aim=True,
-        Steady_Aim=False,
     ) -> None:
         self.template_image = cv2.imread(
             "images/point.png", cv2.IMREAD_GRAYSCALE)
         self.Steady_Aim_Range = Steady_Aim_Range
         self.point_color = (179, 255, 255)
         self.sensitivity = sensitivity
-        self.Steady_Aim = Steady_Aim
         self.vk = VirtualKeyboard()
         self.threshold = threshold
         self.stop_event = Event()
@@ -39,13 +37,15 @@ class Bot:
         self.debug = debug
         self.mode = "Offline"
         self.threads = list[Thread]
+        self.predicted_X = 0
+        self.predicted_Y = 0
         self.frame = None
-        self.Aim = Aim
         self.fov = fov
         self.tox = 0
         self.toy = 0
         self.dx = 0
         self.dy = 0
+        self.t = 0
 
     def calculate(self, x, to) -> int:
         """Calculate the amount needed to get to the target"""
@@ -72,7 +72,7 @@ class Bot:
                 print(f"Error in screenshot function: {e}")
 
     def detect(self) -> None:
-        """Takes care of finding the target"""
+        """Takes care of finding the target and calculates detection time"""
         if self.template_image is None:
             print("Failed to load template image")
             return
@@ -80,6 +80,8 @@ class Bot:
         while not self.stop_event.is_set():
             if self.frame is None:
                 continue
+
+            start_time = time.perf_counter()  # Start timing
 
             gray_frame = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY)
             res = cv2.matchTemplate(
@@ -103,6 +105,9 @@ class Bot:
 
             self.positions = [(x, y, w - x, h - y) for (x, y, w, h) in boxes]
 
+            end_time = time.perf_counter()  # End timing
+            self.t = (end_time - start_time) * 10  # Calculate detection duration
+
             if self.mode == "Offline":
                 continue
 
@@ -117,7 +122,7 @@ class Bot:
         monitor = sct.monitors[0]
         left = (monitor["width"] - self.fov) // 2
         bottom = (monitor["height"] - self.fov) // 2
-
+        oldX = 0 ; oldY = 0
         while not self.stop_event.is_set():
             if self.mode == "Offline" or self.mode == "Idle":
                 time.sleep(0.1)
@@ -128,32 +133,33 @@ class Bot:
 
                 x, y, w, h = self.positions.pop(0)
                 
-                target_x = x + (left + (w // 2))
-                target_y = y + (bottom + (h // 2))
+                target_x = x + math.floor(left + (w // 3))
+                target_y = y + math.floor(bottom + (h // 3))
+                
+                self.predicted_X, self.predicted_Y = get_future_position(oldX, oldY, math.floor(x + (w // 3)), math.floor(y + (h // 3)), self.t)
+                
+                oldX = x if oldX != x else oldX
+                oldY = y if oldY != y else oldY
+                
                 self.dx = target_x - cursor_x
                 self.dy = target_y - cursor_y
                 
+                distance = math.sqrt((self.dx**2) + (self.dy**2))
+                
+                if abs(distance) > 350:
+                    target_x = target_x + (self.predicted_X - x)
+                    target_x = target_x + (self.predicted_Y - y)
+                    
                 x = self.calculate(cursor_x, target_x)
                 y = self.calculate(cursor_y, target_y)
 
-                self.tox = min(x, abs(self.dx)) if self.dx >= 0 else max(
+                self.tox = min(x, abs(self.dx)) if self.dx > 0 else max(
                     x, -abs(self.dx))
-                self.toy = min(y, abs(self.dy)) if self.dy >= 0 else max(
+                self.toy = min(y, abs(self.dy)) if self.dy > 0 else max(
                     y, -abs(self.dy))
-                if self.tox == 0 and self.toy == 0:
-                    if self.dx > (w // 2):
-                        self.tox = -1
-                    elif self.dx < -1:
-                        self.tox = 1
-                    else:
-                        self.tox = 0
-                    if self.dy > (h // 2):
-                        self.toy = 1
-                    elif self.dy < -1:
-                        self.toy = -1
-                    else:
-                        self.toy = 0
+                
                 self.vm.move_relative(int(self.tox), int(self.toy))
+                
             except Exception:
                 pass
             time.sleep(0.1)
@@ -164,32 +170,16 @@ class Bot:
             try:
                 if self.frame is not None:
                     copy = self.frame.copy()
-                    debug_info = [
-                        (f"ToX: {self.tox} ToY: {self.toy}", 5, 20),
-                        (f"X-Diff: {self.dx} Y-Diff: {self.dy}", 5, 40),
-                        (
-                            f"Steady Aim: {
-                                'Enabled' if self.Steady_Aim else 'Disabled'}",
-                            5,
-                            60,
-                        ),
-                        (f"Aim Down Site: {'Enabled' if self.Aim else 'Disabled'}", 5, 80),
-                        (f"Mode: {self.mode}", 5, 100),
-                    ]
-
-                    for text, x, y in debug_info:
-                        cv2.putText(
-                            copy,
-                            text,
-                            (x, y),
-                            cv2.FONT_HERSHEY_COMPLEX_SMALL,
-                            1,
-                            (0, 255, 0),
-                            1,
-                            1,
-                        )
                     arrow_end_x = (self.fov // 2) + int(self.tox)
                     arrow_end_y = (self.fov // 2) + int(self.toy)
+                    cv2.arrowedLine(
+                        copy,
+                        (self.fov // 2, self.fov // 2),
+                        (self.predicted_X, self.predicted_Y),
+                        (255, 50, 50),
+                        5,
+                        1,
+                    )
                     cv2.arrowedLine(
                         copy,
                         (self.fov // 2, self.fov // 2),
@@ -201,6 +191,30 @@ class Bot:
                     for x, y, w, h in self.positions:
                         cv2.rectangle(
                             copy, (x, y), (x + w, y + h), (255, 0, 0), 3, 1)
+                    debug_info = [
+                        (f"ToX: {self.tox} ToY: {self.toy}", 5, 20),
+                        (f"X-Diff: {self.dx} Y-Diff: {self.dy}", 5, 40),
+                        (f"PredictedX: {self.predicted_X} PredictedY: {self.predicted_Y}", 5, 60),
+                        (
+                            f"Steady Aim: {
+                                'Enabled' if self.Steady_Aim else 'Disabled'}",
+                            5,
+                            80,
+                        ),
+                        (f"Aim Down Site: {'Enabled' if self.Aim else 'Disabled'}", 5, 100),
+                        (f"Mode: {self.mode}", 5, 120)
+                    ]
+                    for text, x, y in debug_info:
+                        cv2.putText(
+                            copy,
+                            text,
+                            (x, y),
+                            cv2.FONT_HERSHEY_COMPLEX_SMALL,
+                            1,
+                            (0, 255, 0),
+                            1,
+                            1,
+                        )
 
                     cv2.imshow("feed", copy)
                     cv2.setWindowProperty(
@@ -250,5 +264,5 @@ class Bot:
 
 
 if __name__ == "__main__":
-    aimbot = Bot(400, 0.75, 7.5, 25, True, False, False)
+    aimbot = Bot(400, 0.75, 7.5, 25, True)
     aimbot.start()
