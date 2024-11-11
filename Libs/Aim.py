@@ -41,3 +41,39 @@ def get_future_position(oldX: int | float, oldY: int | float, CX: int | float, C
     newx = math.ceil(CX + (vx * t))
     newy = math.ceil(CY + (vy * t))
     return (newx, newy)
+
+def get_distance(x1: int | float, y1: int | float, x2: int | float, y2: int | float) -> int:
+    """
+    Calculate a rough distance approximation between two points in 2D space 
+    based on the differences in x and y coordinates.
+
+    Args:
+        x1 (int | float): The x-coordinate of the first point.
+        y1 (int | float): The y-coordinate of the first point.
+        x2 (int | float): The x-coordinate of the second point.
+        y2 (int | float): The y-coordinate of the second point.
+
+    Returns:
+        int: The approximate distance as an integer, using floor rounding.
+    """
+    dx = (x2 - x1)
+    dy = (y2 - y1)
+    return math.floor(math.sqrt(dx + dy))
+
+def get_distance2(x1: int | float, y1: int | float, x2: int | float, y2: int | float) -> int:
+    """
+    Calculate the accurate distance between two points in 2D space using the 
+    Euclidean distance formula.
+
+    Args:
+        x1 (int | float): The x-coordinate of the first point.
+        y1 (int | float): The y-coordinate of the first point.
+        x2 (int | float): The x-coordinate of the second point.
+        y2 (int | float): The y-coordinate of the second point.
+
+    Returns:
+        int: The exact Euclidean distance as an integer, using floor rounding.
+    """
+    dx = (x2 - x1)
+    dy = (y2 - y1)
+    return math.floor(math.sqrt((dx**2) + (dy**2)))

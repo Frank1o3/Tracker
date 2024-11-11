@@ -9,7 +9,7 @@ import numpy as np
 from mss import mss
 from PIL import ImageGrab
 
-from Libs.Aim import get_future_position
+from Libs.Aim import get_distance2, get_future_position
 from Libs.Controller import VirtualKeyboard, VirtualMouse
 
 
@@ -64,8 +64,10 @@ class Bot:
                 img = ImageGrab.grab(monitor_area)
                 i = np.array(img)
                 i = cv2.cvtColor(i, cv2.COLOR_RGB2BGR)
-                lower_bound = np.array(self.point_color) - np.array([35, 35, 35])
-                upper_bound = np.array(self.point_color) + np.array([35, 35, 35])
+                lower_bound = np.array(self.point_color) - \
+                    np.array([35, 35, 35])
+                upper_bound = np.array(self.point_color) + \
+                    np.array([35, 35, 35])
                 mask = cv2.inRange(i, lower_bound, upper_bound)
                 self.frame = cv2.bitwise_and(i, i, mask=mask)
             except Exception as e:
@@ -106,7 +108,8 @@ class Bot:
             self.positions = [(x, y, w - x, h - y) for (x, y, w, h) in boxes]
 
             end_time = time.perf_counter()  # End timing
-            self.t = (end_time - start_time) * 10  # Calculate detection duration
+            # Calculate detection duration
+            self.t = (end_time - start_time) * 10
 
             if self.mode == "Offline":
                 continue
@@ -122,34 +125,39 @@ class Bot:
         monitor = sct.monitors[0]
         left = (monitor["width"] - self.fov) // 2
         bottom = (monitor["height"] - self.fov) // 2
-        oldX = 0 ; oldY = 0
+        oldX = 0
+        oldY = 0
         while not self.stop_event.is_set():
             if self.mode == "Offline" or self.mode == "Idle":
                 time.sleep(0.1)
                 continue
-            
+
             cursor_x, cursor_y = self.vm.get_cursor_position()
             try:
 
                 x, y, w, h = self.positions.pop(0)
-                
+
                 target_x = x + math.floor(left + (w // 3))
                 target_y = y + math.floor(bottom + (h // 3))
-                
-                self.predicted_X, self.predicted_Y = get_future_position(oldX, oldY, math.floor(x + (w // 3)), math.floor(y + (h // 3)), self.t)
-                
-                oldX = x if oldX != x else oldX
-                oldY = y if oldY != y else oldY
-                
+
+                self.predicted_X, self.predicted_Y = get_future_position(
+                    oldX, oldY, math.floor(x + (w // 3)), math.floor(y + (h // 3)), self.t)
+
+                check = get_distance2(oldX, oldY, x, y)
+
+                oldX = x if abs(check) > 350 else oldX
+                oldY = y if abs(check) > 350 else oldY
+
                 self.dx = target_x - cursor_x
                 self.dy = target_y - cursor_y
-                
-                distance = math.sqrt((self.dx**2) + (self.dy**2))
-                
+
+                distance = get_distance2(
+                    cursor_x, cursor_y, target_x, target_y)
+
                 if abs(distance) > 350:
                     target_x = target_x + (self.predicted_X - x)
                     target_x = target_x + (self.predicted_Y - y)
-                    
+
                 x = self.calculate(cursor_x, target_x)
                 y = self.calculate(cursor_y, target_y)
 
@@ -157,9 +165,9 @@ class Bot:
                     x, -abs(self.dx))
                 self.toy = min(y, abs(self.dy)) if self.dy > 0 else max(
                     y, -abs(self.dy))
-                
+
                 self.vm.move_relative(int(self.tox), int(self.toy))
-                
+
             except Exception:
                 pass
             time.sleep(0.1)
@@ -194,15 +202,9 @@ class Bot:
                     debug_info = [
                         (f"ToX: {self.tox} ToY: {self.toy}", 5, 20),
                         (f"X-Diff: {self.dx} Y-Diff: {self.dy}", 5, 40),
-                        (f"PredictedX: {self.predicted_X} PredictedY: {self.predicted_Y}", 5, 60),
-                        (
-                            f"Steady Aim: {
-                                'Enabled' if self.Steady_Aim else 'Disabled'}",
-                            5,
-                            80,
-                        ),
-                        (f"Aim Down Site: {'Enabled' if self.Aim else 'Disabled'}", 5, 100),
-                        (f"Mode: {self.mode}", 5, 120)
+                        (f"PredictedX: {self.predicted_X} PredictedY: {
+                         self.predicted_Y}", 5, 60),
+                        (f"Mode: {self.mode}", 5, 80)
                     ]
                     for text, x, y in debug_info:
                         cv2.putText(
