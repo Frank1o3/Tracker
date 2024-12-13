@@ -160,11 +160,11 @@ class Bot:
                 self.toy = min(y, abs(self.dy)) if self.dy > 0 else max(
                     y, -abs(self.dy))
                 
-                if (abs(self.tox) < 1 and abs(self.toy) < 1):
-                    self.vm.left_down()
-                    time.sleep(0.1)
-                    self.vm.left_up()
-                    time.sleep(0.1)
+                # if (abs(self.tox) < 1 and abs(self.toy) < 1):
+                #     self.vm.left_down()
+                #     time.sleep(0.1)
+                #     self.vm.left_up()
+                #     time.sleep(0.1)
                     
                 self.vm.move_relative(int(self.tox), int(self.toy))
 
