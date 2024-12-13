@@ -9,7 +9,7 @@ import numpy as np
 from mss import mss
 from PIL import ImageGrab
 
-from Libs.Aim import get_distance2, get_future_position
+from Libs.Aim import get_future_position
 from Libs.Controller import VirtualKeyboard, VirtualMouse
 
 
@@ -109,7 +109,7 @@ class Bot:
 
             end_time = time.perf_counter()  # End timing
             # Calculate detection duration
-            self.t = (end_time - start_time) * 10
+            self.t = (end_time - start_time)
 
             if self.mode == "Offline":
                 continue
@@ -137,26 +137,20 @@ class Bot:
 
                 x, y, w, h = self.positions.pop(0)
 
-                target_x = x + math.floor(left + (w // 3))
-                target_y = y + math.floor(bottom + (h // 3))
+                target_x = x + math.ceil(left + (w // 3))
+                target_y = y + math.ceil(bottom + (h // 3))
 
                 self.predicted_X, self.predicted_Y = get_future_position(
-                    oldX, oldY, math.floor(x + (w // 3)), math.floor(y + (h // 3)), self.t)
+                    oldX, oldY, math.ceil(x), math.ceil(y))
 
-                check = get_distance2(oldX, oldY, x, y)
-
-                oldX = x if abs(check) > 350 else oldX
-                oldY = y if abs(check) > 350 else oldY
+                oldX = x if oldX != x else oldX
+                oldY = y if oldY != y else oldY
 
                 self.dx = target_x - cursor_x
                 self.dy = target_y - cursor_y
 
-                distance = get_distance2(
-                    cursor_x, cursor_y, target_x, target_y)
-
-                if abs(distance) > 350:
-                    target_x = target_x + (self.predicted_X - x)
-                    target_x = target_x + (self.predicted_Y - y)
+                target_x = target_x + (self.predicted_X - x)
+                target_x = target_x + (self.predicted_Y - y)
 
                 x = self.calculate(cursor_x, target_x)
                 y = self.calculate(cursor_y, target_y)
@@ -165,7 +159,13 @@ class Bot:
                     x, -abs(self.dx))
                 self.toy = min(y, abs(self.dy)) if self.dy > 0 else max(
                     y, -abs(self.dy))
-
+                
+                if (abs(self.tox) < 1 and abs(self.toy) < 1):
+                    self.vm.left_down()
+                    time.sleep(0.1)
+                    self.vm.left_up()
+                    time.sleep(0.1)
+                    
                 self.vm.move_relative(int(self.tox), int(self.toy))
 
             except Exception:
@@ -202,8 +202,7 @@ class Bot:
                     debug_info = [
                         (f"ToX: {self.tox} ToY: {self.toy}", 5, 20),
                         (f"X-Diff: {self.dx} Y-Diff: {self.dy}", 5, 40),
-                        (f"PredictedX: {self.predicted_X} PredictedY: {
-                         self.predicted_Y}", 5, 60),
+                        (f"PredictedX: {self.predicted_X} PredictedY: {self.predicted_Y}", 5, 60),
                         (f"Mode: {self.mode}", 5, 80)
                     ]
                     for text, x, y in debug_info:
@@ -230,10 +229,10 @@ class Bot:
 
     def keyboard_event(self, event: kb.KeyboardEvent) -> None:
         """Handles keyboard events"""
-        if event.name == "f1" and event.event_type == "down":
+        if event.name == "f2" and event.event_type == "down":
             self.stop_event.set()
             return
-        elif event.name == "f2" and event.event_type == "down":
+        elif event.name == "f1" and event.event_type == "down":
             if self.mode == "Offline":
                 self.mode = "Idle"
             else:
@@ -261,10 +260,10 @@ class Bot:
             t.start()
         self.stop_event.wait()
         for t in self.threads:
-            t.join()
+            t.join() 
         kb.unhook_all()
 
 
 if __name__ == "__main__":
-    aimbot = Bot(400, 0.75, 7.5, 25, True)
+    aimbot = Bot(400, 0.75, 10.5, 25, True)
     aimbot.start()
