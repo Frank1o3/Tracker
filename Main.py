@@ -21,12 +21,10 @@ class Bot:
         fov=500,
         threshold=0.5,
         sensitivity=7.5,
-        Steady_Aim_Range=25,
         debug=True,
     ) -> None:
         self.template_image = cv2.imread(
             "images/point.png", cv2.IMREAD_GRAYSCALE)
-        self.Steady_Aim_Range = Steady_Aim_Range
         self.point_color = (179, 255, 255)
         self.sensitivity = sensitivity
         self.vk = VirtualKeyboard()
@@ -142,7 +140,7 @@ class Bot:
 
                 self.predicted_X, self.predicted_Y = get_future_position(
                     oldX, oldY, math.ceil(x), math.ceil(y))
-
+            
                 oldX = x if oldX != x else oldX
                 oldY = y if oldY != y else oldY
 
@@ -160,13 +158,13 @@ class Bot:
                 self.toy = min(y, abs(self.dy)) if self.dy > 0 else max(
                     y, -abs(self.dy))
                 
-                # if (abs(self.tox) < 1 and abs(self.toy) < 1):
-                #     self.vm.left_down()
-                #     time.sleep(0.1)
-                #     self.vm.left_up()
-                #     time.sleep(0.1)
-                    
-                self.vm.move_relative(int(self.tox), int(self.toy))
+                if (abs(self.tox) < 1 and abs(self.toy) < 1):
+                    self.vm.left_down()
+                    time.sleep(0.1)
+                    self.vm.left_up()
+                    time.sleep(0.1)
+                else:
+                    self.vm.move_relative(int(self.tox), int(self.toy))
 
             except Exception:
                 pass
@@ -265,5 +263,5 @@ class Bot:
 
 
 if __name__ == "__main__":
-    aimbot = Bot(400, 0.75, 10.5, 25, True)
+    aimbot = Bot(500, 0.75, 8, False)
     aimbot.start()
