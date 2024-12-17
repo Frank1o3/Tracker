@@ -9,8 +9,8 @@ import numpy as np
 from mss import mss
 from PIL import ImageGrab
 
-from Libs.Aim import get_future_position
-from Libs.Controller import VirtualKeyboard, VirtualMouse
+from Libs.Aim import get_future_position2
+from Libs.Controller import VirtualMouse
 
 
 class Bot:
@@ -27,7 +27,6 @@ class Bot:
             "images/point.png", cv2.IMREAD_GRAYSCALE)
         self.point_color = (179, 255, 255)
         self.sensitivity = sensitivity
-        self.vk = VirtualKeyboard()
         self.threshold = threshold
         self.stop_event = Event()
         self.vm = VirtualMouse()
@@ -43,6 +42,7 @@ class Bot:
         self.toy = 0
         self.dx = 0
         self.dy = 0
+        self.t2 = 0
         self.t = 0
 
     def calculate(self, x, to) -> int:
@@ -58,6 +58,8 @@ class Bot:
         y = (monitor["height"] - self.fov) // 2
         monitor_area = (x, y, x + self.fov, y + self.fov)
         while not self.stop_event.is_set():
+            start_time = time.perf_counter()  # Start timing
+            
             try:
                 img = ImageGrab.grab(monitor_area)
                 i = np.array(img)
@@ -70,6 +72,10 @@ class Bot:
                 self.frame = cv2.bitwise_and(i, i, mask=mask)
             except Exception as e:
                 print(f"Error in screenshot function: {e}")
+            
+            end_time = time.perf_counter()  # End timing
+            # Calculate detection duration
+            self.t2 = (end_time - start_time)
 
     def detect(self) -> None:
         """Takes care of finding the target and calculates detection time"""
@@ -100,7 +106,7 @@ class Bot:
                 [(x, y, x + w, y + h) for x, y, w, h in boxes], dtype=np.int64
             )
             boxes, weights = cv2.groupRectangles(
-                boxes.tolist(), groupThreshold=2, eps=0.2
+                boxes.tolist(), groupThreshold=1, eps=0.2
             )
 
             self.positions = [(x, y, w - x, h - y) for (x, y, w, h) in boxes]
@@ -127,6 +133,8 @@ class Bot:
         oldY = 0
         while not self.stop_event.is_set():
             if self.mode == "Offline" or self.mode == "Idle":
+                self.tox = 0
+                self.toy = 0
                 time.sleep(0.1)
                 continue
 
@@ -135,20 +143,22 @@ class Bot:
 
                 x, y, w, h = self.positions.pop(0)
 
-                target_x = x + math.ceil(left + (w // 3))
-                target_y = y + math.ceil(bottom + (h // 3))
+                target_x = math.ceil(left + (w // 3))
+                target_y = math.ceil(bottom + (h // 3))
 
-                self.predicted_X, self.predicted_Y = get_future_position(
-                    oldX, oldY, math.ceil(x), math.ceil(y))
+                # self.vm.move_to(int(target_x), int(target_y))
+                
+                self.predicted_X, self.predicted_Y = get_future_position2(
+                    oldX, oldY, math.ceil(x), math.ceil(y), (self.t + self.t2))
             
                 oldX = x if oldX != x else oldX
                 oldY = y if oldY != y else oldY
-
+                
+                target_x = target_x + (self.predicted_X)
+                target_y = target_y + (self.predicted_Y)
+                
                 self.dx = target_x - cursor_x
                 self.dy = target_y - cursor_y
-
-                target_x = target_x + (self.predicted_X - x)
-                target_x = target_x + (self.predicted_Y - y)
 
                 x = self.calculate(cursor_x, target_x)
                 y = self.calculate(cursor_y, target_y)
@@ -163,8 +173,13 @@ class Bot:
                     time.sleep(0.1)
                     self.vm.left_up()
                     time.sleep(0.1)
-                else:
-                    self.vm.move_relative(int(self.tox), int(self.toy))
+                
+                # if (abs(self.tox) < 15 and abs(self.toy) < 15):
+                #     self.vm.move_relative(int(self.tox), int(self.toy))
+                # else:
+                #     self.vm.move_in_steps(int(self.tox), int(self.toy))
+                    
+                self.vm.move_relative(int(self.tox), int(self.toy))
 
             except Exception:
                 pass
@@ -196,7 +211,7 @@ class Bot:
                     )
                     for x, y, w, h in self.positions:
                         cv2.rectangle(
-                            copy, (x, y), (x + w, y + h), (255, 0, 0), 3, 1)
+                            copy, (x, y), (x + w, y + h), (255, 0, 0), 1, 1)
                     debug_info = [
                         (f"ToX: {self.tox} ToY: {self.toy}", 5, 20),
                         (f"X-Diff: {self.dx} Y-Diff: {self.dy}", 5, 40),
@@ -263,5 +278,5 @@ class Bot:
 
 
 if __name__ == "__main__":
-    aimbot = Bot(500, 0.75, 8, False)
+    aimbot = Bot(400, 0.5, 7.2, True)
     aimbot.start()
