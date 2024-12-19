@@ -8,7 +8,6 @@ import cv2
 import keyboard as kb
 import numpy as np
 from mss import mss
-from PIL import ImageGrab
 
 from Libs.Aim import get_future_position_nl, get_vel
 from Libs.Controller import VirtualMouse
